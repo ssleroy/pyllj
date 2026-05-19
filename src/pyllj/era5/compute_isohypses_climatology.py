@@ -96,8 +96,9 @@ def compute_isohypses_climatology( yearrange:str, dataroot:str=default_dataroot 
                         break
                     else: 
                         comments.append( f'File not found: {rpath}' )
-                ret.update( success=False, messages='UnavailableFile', comments=comments )
-                return ret
+                if not found: 
+                    ret.update( success=False, messages='UnavailableFile', comments=comments )
+                    return ret
 
             if s3: 
                 print( f'Downloading s3://{bucket}/{rpath}' )

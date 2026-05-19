@@ -54,8 +54,8 @@ def compute_isohypses_climatology( yearrange, dataroot:str=default_dataroot ):
 
             found, comments = False, []
 
-            for base in [ "isohypses", "merra2_isohypses" ]
-                inputpath = os.path.join( dataroot, output_subdir, f'isohypses.{year:4d}{month:02d}.nc' )
+            for base in [ "isohypses", "merra2_isohypses" ]: 
+                inputpath = os.path.join( dataroot, output_subdir, f'{base}.{year:4d}{month:02d}.nc' )
                 if  os.path.exists( inputpath ): 
                     found = True
                     break 
