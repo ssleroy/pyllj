@@ -52,13 +52,21 @@ def compute_isohypses_climatology( yearrange, dataroot:str=default_dataroot ):
 
             #  Remote path for input file. 
 
-            inputpath = os.path.join( dataroot, output_subdir, f'isohypses.{year:4d}{month:02d}.nc' )
+            found, comments = False, []
+
+            for base in [ "isohypses", "merra2_isohypses" ]
+                inputpath = os.path.join( dataroot, output_subdir, f'isohypses.{year:4d}{month:02d}.nc' )
+                if  os.path.exists( inputpath ): 
+                    found = True
+                    break 
+                else: 
+                    comments.append( f'{inputpath} does not exist' )
+
+            if not found: 
+                ret.update( comments=comments )
+                continue
 
             #  Open input data file. 
-
-            if not os.path.exists( inputpath ): 
-                ret.update( comments=f'{inputpath} does not exist' )
-                continue
 
             try: 
                 d = Dataset( inputpath, 'r' )

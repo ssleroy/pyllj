@@ -73,18 +73,31 @@ def compute_isohypses_climatology( yearrange:str, dataroot:str=default_dataroot 
             #  Remote path for input file. 
 
             if s3: 
-                rpath = f'Data/{output_subdir}/isohypses.{year:4d}{month:02d}.nc'
-                lpath = os.path.basename( rpath )
-                r = s3.list_objects_v2( Bucket=bucket, Prefix=rpath )
-                if r['KeyCount'] != 1: 
-                    ret.update( success=False, messages='UnavailableFile', comments=f'File not found: s3://{bucket}/{rpath}' )
-                    return ret
+                found, comments = True, []
+                for base in [ "isohypses", "era5_isohypses" ]: 
+                    rpath = f'Data/{output_subdir}/{base}.{year:4d}{month:02d}.nc'
+                    lpath = os.path.basename( rpath )
+                    r = s3.list_objects_v2( Bucket=bucket, Prefix=rpath )
+                    if r['KeyCount'] == 1: 
+                        found = True
+                        break 
+                    else: 
+                        comments.append( f'File not found: s3://{bucket}/{rpath}' )
+                ret.update( success=False, messages='UnavailableFile', comments=comments )
+                return ret
+
             else: 
-                rpath = f'{dataroot}/{output_subdir}/isohypses.{year:4d}{month:02d}.nc'
-                lpath = os.path.basename( rpath )
-                if not os.path.exists( rpath ): 
-                    ret.update( success=False, messages='UnavailableFile', comments=f'File not found: {rpath}' )
-                    return ret
+                found, comments = True, []
+                for base in [ "isohypses", "era5_isohypses" ]: 
+                    rpath = f'{dataroot}/{output_subdir}/{base}.{year:4d}{month:02d}.nc'
+                    lpath = os.path.basename( rpath )
+                    if os.path.exists( rpath ): 
+                        found = True
+                        break
+                    else: 
+                        comments.append( f'File not found: {rpath}' )
+                ret.update( success=False, messages='UnavailableFile', comments=comments )
+                return ret
 
             if s3: 
                 print( f'Downloading s3://{bucket}/{rpath}' )
