@@ -171,7 +171,7 @@ def plot_summer_llj_diagnostics( reanalyses:list=["narr","merra2","era5"],
             if ix == 0: 
                 ax.text( -130, 51, title, horizontalalignment="left", verticalalignment="bottom", clip_on=False )
 
-            if ix == 0 and region is not None: 
+            if ix == 0 and region != "": 
                 rs = [ r for r in regions if r['name'] == region ]
                 if len( rs ) == 1: 
                     r = rs[0]
@@ -389,7 +389,7 @@ def main():
     #  Generate figure. 
 
     plot_summer_llj_diagnostics( modelroot=args.modelroot, modellabel=label, 
-            outputfile=args.outputfile )
+            region=args.region, outputfile=args.outputfile )
     return 
 
 
