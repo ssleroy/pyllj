@@ -52,7 +52,7 @@ def plot_summer_llj_diagnostics( reanalyses:list=["narr","merra2","era5"],
     else: 
         nrows = nreanalyses + 1
     ysize = 1.5 * nrows + lowermargin
-    
+
     fig = plt.figure( figsize=(xsize,ysize) )
     proj = ccrs.PlateCarree
 
@@ -107,8 +107,11 @@ def plot_summer_llj_diagnostics( reanalyses:list=["narr","merra2","era5"],
         #  Define diagnostic plots and their parameters. 
 
         plotmeta = [ 
-            { 'field': dailyeventProbability * 100, 
-              'label': r'Probability of Daily Occurrence [\%]', 
+            { 
+              # 'field': dailyeventProbability * 100, 
+              # 'label': r'Probability of Daily Occurrence [\%]', 
+              'field': eventProbability * 100, 
+              'label': r'Probability of Occurrence [\%]', 
               'levels': np.arange(0,100.1,5), 
               'ticks': np.arange(0,100.1,20), 
               'colorscale': 11, 
