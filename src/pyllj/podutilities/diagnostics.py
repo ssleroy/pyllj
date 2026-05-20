@@ -30,6 +30,7 @@ plt.rcParams.update( {
 def plot_summer_llj_diagnostics( reanalyses:list=["narr","merra2","era5"], 
                                  modelroot:{str,None}=None, 
                                  modellabel:{str,None}=None, 
+                                 region:str=None, 
                                  outputfile:str="diagnostics.pdf" ): 
     """Generate a figure showing the diagnostics of the LLJ for a set of 
     reanalyses. Each row of the plot corresponds one reanalyses, and the 
@@ -168,6 +169,16 @@ def plot_summer_llj_diagnostics( reanalyses:list=["narr","merra2","era5"],
 
             if ix == 0: 
                 ax.text( -130, 51, title, horizontalalignment="left", verticalalignment="bottom", clip_on=False )
+
+            if ix == 0 and region is not None: 
+                rs = [ r for r in regions if r['name'] == region ]
+                if len( rs ) == 1: 
+                    r = rs[0]
+                    rlons = [ r['longituderange'][0], r['longituderange'][1], r['longituderange'][1], r['longituderange'][0], r['longituderange'][0] ]
+                    rlats = [ r['latituderange'][0], r['latituderange'][0], r['latituderange'][1], r['latituderange'][1], r['latituderange'][0] ]
+                    ax.plot( rlons, rlats, lw=1.5, color="#0000C0" )
+                else: 
+                    print( f'Region "{region}" is not available in pyllj.parameters.regions' )
 
             #  Map features. 
 
