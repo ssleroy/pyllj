@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator 
 import cartopy.crs as ccrs
 from cartopy.feature import BORDERS, STATES, OCEAN
+from pyllj.parameters import regions 
 from .libpod import get_metricpath
 from .pyukmo import UKMOcolorMaps
 
@@ -361,6 +362,11 @@ def main():
 
     parser.add_argument( "--label", dest="label", default="", 
             help="The nominal label of the model run" )
+
+    valid_regions = [ r['name'] for r in regions ]
+    parser.add_argument( "--region", "-r", dest="region", default="", 
+            help="The name of the region to outline in the first plot of the last row.  " + \
+                    "Valid regions are " + ", ".join( [ f'"{s}"' for s in valid_regions ] ) + "." )
 
     parser.add_argument( "--output", "-o", dest="outputfile", default="diagnostics.pdf", 
             help="The output figure file." )
