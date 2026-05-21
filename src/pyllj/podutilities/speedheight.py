@@ -216,8 +216,9 @@ def main():
     parser.add_argument( "--label", dest="label", default="", 
             help="The nominal label of the model run" )
 
-    parser.add_argument( "--output", "-o", dest="outputfile", default="speedheight.pdf", 
-            help="The output figure file." )
+    default_output = "speedheight.pdf"
+    parser.add_argument( "--output", "-o", dest="outputfile", default=default_output, 
+            help=f'The output figure file. The default is "{default_output}".' )
 
     parser.add_argument( "--pdb", dest="pdb", default=False, action="store_true", 
             help="Run in the Python line debugger PDB." )

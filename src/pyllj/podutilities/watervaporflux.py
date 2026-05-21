@@ -1,7 +1,6 @@
 #  Water vapor column mass flux figures, comparing NARR, MERRA2, and ERA5. 
 
 import os
-import re
 import argparse
 import numpy as np
 from netCDF4 import Dataset
@@ -10,9 +9,7 @@ from matplotlib import ticker
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature 
 from .libpod import get_metricpath
-from ..parameters import boundaries, regions
 import warnings
-
 
 warnings.filterwarnings("ignore")
 
@@ -68,43 +65,75 @@ def def_ax( fig, bounds=[0.05,0.05,0.90,0.90], fontsize=None ):
     return ax
 
 
-def read_metadata( datapath, metadata:dict={} ): 
+def plot_watervaporflux( reanalyses:list=["narr","merra2","era5"], layer:str="pbl", 
+        modelroot:str=None, modellabel:str=None, 
+        nx:int=2, outputfile:str="watervaporflux.pdf" ): 
+    """Annual average, diurnal average water vapor mass flux"""
 
-    if not os.path.exists( datapath ): 
-        print( f'Data file {datapath} does not exist. Exiting' )
-        return None
+    metadata = []
 
-    d = Dataset( datapath, 'r' )
-    if "lon" in d.variables.keys(): 
-        lons = d.variables['lon'][:]
-        lats = d.variables['lat'][:]
-    elif "longitude" in d.variables.keys(): 
-        lons = d.variables['longitude'][:]
-        lats = d.variables['latitude'][:]
+    if modelroot is None: 
+        nplots = len( reanalyses )
+    else: 
+        nplots = len( reanalyses ) + 1
 
-    d.close()
-    metadata.update( { 'path': datapath, 'lons': lons, 'lats': lats } )
+    for iplot in range(nplots): 
 
-    return metadata
+        if iplot < len( reanalyses ): 
 
+            #  Build metadata for reanalysis. First, how many lons and lats 
+            #  in grid to skip in the plotted vector fields. 
 
-def plot_watervaporflux( analyses:list, layer:str, outputfile:str, nx:int=2, ): 
-    """Annual average, diurnal average atmospheric mass flux"""
+            reanalysis = reanalyses[iplot]
+            meta = { 'name': reanalysis.upper() }
 
-    nanalyses = len( analyses )
-    ny = int( ( nanalyses - 1 ) / nx ) + 1
+            if reanalysis == "narr": 
+                meta.update( { 'nxskip': 7, 'nyskip': 7 } )
+            elif reanalysis == "merra2": 
+                meta.update( { 'nxskip': 4, 'nyskip': 4 } )
+            elif reanalysis == "era5": 
+                meta.update( { 'nxskip': 10, 'nyskip': 8 } )
 
+            meta.update( { 'path': get_metricpath( "watervaporflux", reanalysis ) } )
+
+        else: 
+
+            meta = { 'nxskip': 2, 'nyskip': 2 }
+            meta.update( { 'path': os.path.join( modelroot, "watervaporflux", "watervaporflux.nc" ) } )
+
+            if modellabel is None or modellabel == "": 
+                meta.update( { 'name': os.path.split( modelroot )[-1] } )
+            else: 
+                meta.update( { 'name': modellabel } )
+
+        #  Get lons and lats. 
+
+        d = Dataset( meta['path'], 'r' )
+        if "lon" in d.variables.keys(): 
+            lons = d.variables['lon'][:]
+            lats = d.variables['lat'][:]
+        elif "longitude" in d.variables.keys(): 
+            lons = d.variables['longitude'][:]
+            lats = d.variables['latitude'][:]
+        d.close()
+
+        meta.update( { 'lons': lons, 'lats': lats } )
+        metadata.append( meta )
+
+    #  Set up plotting grid and figure. 
+
+    ny = int( ( nplots - 1 ) / nx ) + 1
     fig = plt.figure( figsize=(3*nx,1.8*ny) )
 
-    for ianalysis, analysis in enumerate( analyses ): 
+    for iplot, meta in enumerate( metadata ): 
 
-        ix = ianalysis % nx
-        iy = ny - int(ianalysis/nx) - 1
+        ix = iplot % nx
+        iy = ny - int(iplot/nx) - 1
 
         pos = np.array( [0.02+ix,0.01+iy,0.92,0.81] ) / np.array( [nx,ny,nx,ny] )
         ax = def_ax( fig, bounds=pos )
 
-        d = Dataset( analysis['path'], 'r' )
+        d = Dataset( meta['path'], 'r' )
         groupnames = list( d.groups.keys() )
         if layer not in groupnames: 
             print( f'Layer "{layer}" not in file; valid layers are ' + \
@@ -115,13 +144,13 @@ def plot_watervaporflux( analyses:list, layer:str, outputfile:str, nx:int=2, ):
 
         uwvf_avg = g.variables['uwvf'][:].mean(axis=0).mean(axis=0)
         vwvf_avg = g.variables['vwvf'][:].mean(axis=0).mean(axis=0)
-        lons = analysis['lons']
-        lats = analysis['lats']
-        nxskip, nyskip = analysis['nxskip'], analysis['nyskip']
+        lons = meta['lons']
+        lats = meta['lats']
+        nxskip, nyskip = meta['nxskip'], meta['nyskip']
 
         d.close()
 
-        if len( analysis['lons'].shape ) == 2: 
+        if len( meta['lons'].shape ) == 2: 
             ax.quiver( lons[::nyskip+1,::nxskip+1], lats[::nyskip+1,::nxskip+1], \
                     uwvf_avg[::nyskip+1,::nxskip+1], vwvf_avg[::nyskip+1,::nxskip+1], \
                     transform=ccrs.PlateCarree(), scale=wvscale, scale_units="xy" )
@@ -130,23 +159,15 @@ def plot_watervaporflux( analyses:list, layer:str, outputfile:str, nx:int=2, ):
                     uwvf_avg[::nyskip+1,::nxskip+1], vwvf_avg[::nyskip+1,::nxskip+1], \
                     transform=ccrs.PlateCarree(), scale=wvscale, scale_units="xy" )
 
-        title = "({:}) {:}".format( chr(ord("a")+ianalysis), analysis['name'] )
+        title = "({:}) {:}".format( chr(ord("a")+iplot), meta['name'] )
         ax.text( -135, 57, title, ha="left" )
 
         f = 5
-        if ianalysis == int( nanalyses/2 ): 
+        if iplot == int( nplots/2 ): 
             ax.quiver( [-57.5], [20], [0], [f*wvscale], 
                     transform=ccrs.PlateCarree(), scale=wvscale, scale_units="xy", 
                     clip_on=False )
             ax.text( -58, 28, f'{f*wvscale:.1f} kg/m/s', rotation="vertical", ha="left", clip_on=False )
-
-        if ianalysis == nanalyses-1: 
-            regb = boundaries['great-plains']
-            ax.plot( regb['lons'], regb['lats'], lw=1.2, color="red" )
-            reg = [ reg for reg in regions if reg['name']=="great-plains" ][0]
-            x = np.array( [ reg['longituderange'][0], reg['longituderange'][1], reg['longituderange'][1], reg['longituderange'][0], reg['longituderange'][0] ] )
-            y = np.array( [ reg['latituderange'][0], reg['latituderange'][0], reg['latituderange'][1], reg['latituderange'][1], reg['latituderange'][0] ] )
-            ax.plot( x, y, lw=1.2, color="blue" )
 
     print( f'Saving to {outputfile}.' )
     fig.savefig( outputfile )
@@ -183,31 +204,12 @@ def main():
         import pdb
         pdb.set_trace()
 
-    #  Reanalysis specifics. 
-
-    reanalyses = [ { 'name': 'NARR', 'nxskip': 7, 'nyskip': 7 }, 
-            { 'name': 'MERRA2', 'nxskip': 4, 'nyskip': 4 }, 
-            { 'name': 'ERA5', 'nxskip': 10, 'nyskip': 8 }
-            ]
-
-    for reanalysis in reanalyses: 
-        path = get_metricpath( "watervaporflux", reanalysis['name'].lower() )
-        read_metadata( path, reanalysis ) 
-
-    if args.label == "": 
-        label = os.path.split( args.modelroot )[-1]
-    else: 
-        label = str( args.label )
-
-    #  Read in model metadata. 
-
-    model = { 'nxskip': 2, 'nyskip': 2, 'name': label }
-    datapath = os.path.join( args.modelroot, "watervaporflux", "watervaporflux.nc" )
-    model = read_metadata( datapath, model )
-
     #  Generate figure. 
 
-    plot_watervaporflux( reanalyses + [ model ], args.layer, args.outputfile )
+    plot_watervaporflux( layer=args.layer, 
+        modelroot=args.modelroot, modellabel=args.label, 
+        outputfile=args.outputfile )
+
     return
 
 

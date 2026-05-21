@@ -30,7 +30,7 @@ plt.rcParams.update( {
   'axes.linewidth': axeslinewidth } ) 
 
 
-def create_figure( reanalyses:{tuple,list}=["narr","merra2","era5"], layer:str="column", 
+def plot_boundaryflux( reanalyses:{tuple,list}=["narr","merra2","era5"], layer:str="column", 
                   modelroot:{str,None}=None, modellabel:{str,None}=None, 
                   outputfile="boundaryflux.pdf" ): 
 
@@ -113,8 +113,8 @@ def create_figure( reanalyses:{tuple,list}=["narr","merra2","era5"], layer:str="
     ax = fig.add_axes( [0.10,0.16,0.42,0.70] )
 
     xlim = ( 0, 12 )
-    ylim = ( -1, 5 )
-    yticks = np.arange( 0, 4.1, 2 )
+    ylim = ( -1, 2 )
+    yticks = np.arange( -1, 2.1, 1 )
 
     ax.set_xlim( *xlim )
     ax.set_xticks( np.arange(0.5,12,1) )
@@ -123,7 +123,7 @@ def create_figure( reanalyses:{tuple,list}=["narr","merra2","era5"], layer:str="
 
     ax.set_ylim( *ylim )
     ax.set_yticks( yticks )
-    ax.yaxis.set_minor_locator( MultipleLocator(0.5) )
+    ax.yaxis.set_minor_locator( MultipleLocator(0.2) )
     # ax.set_ylabel( 'Column water vapor flux [Gtons/hr]' )
 
     x = ( xlim[0] + 0.02 * 0.5 / ax.get_position().width * (xlim[1]-xlim[0]) ) 
@@ -162,7 +162,7 @@ def create_figure( reanalyses:{tuple,list}=["narr","merra2","era5"], layer:str="
     ax.set_ylim( *ylim )
     ax.set_yticks( yticks )
     ax.set_yticklabels( [] )
-    ax.yaxis.set_minor_locator( MultipleLocator(0.5) )
+    ax.yaxis.set_minor_locator( MultipleLocator(0.2) )
 
     x = ( xlim[0] + 0.02 * 0.5 / ax.get_position().width * (xlim[1]-xlim[0]) ) 
     y = ( ylim[0] + 0.92 * (ylim[1]-ylim[0]) ) 
@@ -205,8 +205,8 @@ def main():
     parser.add_argument( "modelroot", type=str, 
             help="The root directory of the model output" )
 
-    default_layer = "column"
-    parser.add_argument( "--layer", dest="layer", default="column", 
+    default_layer = "pbl"
+    parser.add_argument( "--layer", dest="layer", default=default_layer, 
             help=f'The name of the layer to diagnose; the default is "{default_layer}".' )
 
     parser.add_argument( "--label", dest="label", default="", 
@@ -233,7 +233,7 @@ def main():
 
     #  Generate figure. 
 
-    create_figure( layer=args.layer, modelroot=args.modelroot, modellabel=label, 
+    plot_boundaryflux( layer=args.layer, modelroot=args.modelroot, modellabel=label, 
             outputfile=args.outputfile )
 
     return 
