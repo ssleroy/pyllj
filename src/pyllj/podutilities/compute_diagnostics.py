@@ -2,7 +2,7 @@ import re
 import os
 from datetime import datetime, timedelta, timezone
 import argparse
-from .libpod import cycle_time, modeloutput_subdir, ModelOutput, region
+from .libpod import modeloutput_subdir, ModelOutput, region
 from netCDF4 import Dataset
 import numpy as np
 from scipy.interpolate import CubicHermiteSpline
@@ -14,10 +14,6 @@ from ..parameters import gravity, RetClass
 #  Subdirectory for diagnostics output. 
 
 output_subdir = "diagnostics"
-
-#  Physical constants. 
-
-nzulu = int( 24.0 / cycle_time + 0.001 )    # Number of model cycles per day
 
 
 ################################################################################
@@ -75,6 +71,7 @@ def compute_diagnostics( month:str, dataroot:str, clobber:bool=False ):
     #  Instantiate access to the model output. 
 
     model = ModelOutput( dataroot )
+    ncd = int( timedelta(hours=24)/model.tdelta + 0.001 )
 
     #  Create datetimerange, a list of instances of datetime.datetime 
     #  corresponding to the daterange. 
@@ -92,9 +89,9 @@ def compute_diagnostics( month:str, dataroot:str, clobber:bool=False ):
     #  Dimension arrays. 
 
     datestrings = []
-    llj_exists = np.zeros( (ndays,nzulu,nlats,nlons), np.int8 )
-    llj_height = np.zeros( (ndays,nzulu,nlats,nlons), np.float32 )
-    llj_wnd = np.zeros( (ndays,nzulu,nlats,nlons), np.float32 )
+    llj_exists = np.zeros( (ndays,ncd,nlats,nlons), np.int8 )
+    llj_height = np.zeros( (ndays,ncd,nlats,nlons), np.float32 )
+    llj_wnd = np.zeros( (ndays,ncd,nlats,nlons), np.float32 )
 
     #  Initialize loop over time. 
 
@@ -109,10 +106,10 @@ def compute_diagnostics( month:str, dataroot:str, clobber:bool=False ):
 
         #  Scan over time intervals in day. 
 
-        for izulu in range(nzulu): 
+        for izulu in range(ncd): 
 
-            dt = dtday + izulu * timedelta(days=1) / nzulu + model.toffset
-            ihour = ( izulu + 1 ) % nzulu
+            dt = dtday + izulu * timedelta(days=1) / ncd + model.toffset
+            ihour = ( izulu + 1 ) % ncd
 
             #  Get wind and height profiles. 
 
@@ -233,7 +230,7 @@ def compute_diagnostics( month:str, dataroot:str, clobber:bool=False ):
 
     d.createDimension( "lon", nlons )
     d.createDimension( "lat", nlats )
-    d.createDimension( "hr", nzulu )
+    d.createDimension( "hr", ncd )
     d.createDimension( "day", ndays )
     d.createDimension( "daystr", 10 )
 

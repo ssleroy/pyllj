@@ -6,7 +6,7 @@ import numpy as np
 from netCDF4 import Dataset
 from time import time
 from datetime import datetime, timedelta, timezone
-from .libpod import ModelOutput, RetClass,cycle_time, gravity, epoch, output_time_units
+from .libpod import ModelOutput, RetClass, gravity, epoch, output_time_units
 
 #  Parameters. 
 
@@ -56,6 +56,7 @@ def compute_watervaporflux( month:str, dataroot:str, clobber:bool=False ):
 
     model = ModelOutput( dataroot )
     lons, lats = model.lons, model.lats
+    ncd = int( timedelta(hours=24) / model.tdelta + 0.001 )
 
     #  Dimensions. 
 
@@ -63,8 +64,7 @@ def compute_watervaporflux( month:str, dataroot:str, clobber:bool=False ):
     t1 = datetime.fromisoformat( month+"-01" )
     t2 = t1 + timedelta(days=31)
     t2 = datetime( year=t2.year, month=t2.month, day=1 ) 
-    ncd = int( 24 / cycle_time + 0.001 )
-    ntimes = int( ( t2 - t1 ) / timedelta(hours=cycle_time) + 0.001 )
+    ntimes = int( ( t2 - t1 ) / model.tdelta + 0.001 )
 
     #  Dimension arrays. 
 
@@ -91,7 +91,7 @@ def compute_watervaporflux( month:str, dataroot:str, clobber:bool=False ):
 
     for itime in range(ntimes): 
 
-        dt = t1 + itime * timedelta(hours=cycle_time) + model.toffset
+        dt = t1 + itime * model.tdelta + model.toffset
         print( '  Time ' + dt.strftime( "%Y-%m-%d %H:%M" ) )
         sys.stdout.flush()
 

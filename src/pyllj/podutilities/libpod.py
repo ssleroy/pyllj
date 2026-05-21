@@ -12,7 +12,6 @@ from scipy.interpolate import interp1d, CubicHermiteSpline
 from ..libutils import RetClass 
 from ..parameters import Rearth, Rideal, gravity, muvap, mudry, default_dataroot, aws_region, bucket, zenodoversion
 
-cycle_time = 3      #  hours
 fill_float = -1.0e20
 epoch = datetime( year=1980, month=1, day=1 )
 output_time_units = "hours"

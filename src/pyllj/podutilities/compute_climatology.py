@@ -6,11 +6,9 @@ from netCDF4 import Dataset
 import numpy as np
 from datetime import datetime, timedelta, timezone
 from time import time
-from .libpod import cycle_time 
 
 #  Number of model cycles per day. 
 
-nzulu = int( 24.0 / cycle_time + 0.001 )
 output_subdir = "watervaporflux"
 
 
@@ -94,6 +92,16 @@ def compute_climatology( yearrange:{tuple,list}, dataroot:str ):
                 nlons = d.dimensions['longitude'].size 
                 nlats = d.dimensions['latitude'].size 
 
+                #  Get time interval tdelta and output cadence. 
+
+                v = d.variables['time']
+                attr = v.getncattr( "units" )
+                m = re.search( r'^(\w+) since', attr )
+                tdelta = float( v[1] - v[0] ) * timedelta( **{ m.group(1): 1 } )
+                ncd = int( timedelta(hours=24) / tdelta + 0.001 )
+
+                #  Initialize output dictionary. 
+
                 out = { 'attributes': {}, 'select_variables': {}, 'pbl_depth': {}, 
                        'column_climatology': [], 'pbl_climatology': [] } 
 
@@ -125,21 +133,21 @@ def compute_climatology( yearrange:{tuple,list}, dataroot:str ):
 
                 for i in range(12): 
                     out['column_climatology'].append( 
-                            { key: np.zeros( (nzulu,nlats,nlons), dtype=np.float32 ) for key in variables } | \
-                            { key+"_var": np.zeros( (nzulu,nlats,nlons), dtype=np.float32 ) for key in variables } )
+                            { key: np.zeros( (ncd,nlats,nlons), dtype=np.float32 ) for key in variables } | \
+                            { key+"_var": np.zeros( (ncd,nlats,nlons), dtype=np.float32 ) for key in variables } )
                     out['pbl_climatology'].append( 
-                            { key: np.zeros( (nzulu,nlats,nlons), dtype=np.float32 ) for key in variables } | \
-                            { key+"_var": np.zeros( (nzulu,nlats,nlons), dtype=np.float32 ) for key in variables } )
+                            { key: np.zeros( (ncd,nlats,nlons), dtype=np.float32 ) for key in variables } | \
+                            { key+"_var": np.zeros( (ncd,nlats,nlons), dtype=np.float32 ) for key in variables } )
 
             #  Statistics. 
 
-            ndays = int( d.dimensions['time'].size / nzulu )
+            ndays = int( d.dimensions['time'].size / ncd )
 
             for vert in [ 'column', 'pbl' ]: 
                 clim = out[f'{vert}_climatology'][imonth]
                 for key in variables:  
-                    clim[key] += d.groups[vert].variables[key][:].reshape( nzulu, ndays, nlats, nlons ).mean(axis=1)
-                    clim[key+"_var"] += ( d.groups[vert].variables[key][:].reshape( nzulu, ndays, nlats, nlons ).mean(axis=1) )**2 
+                    clim[key] += d.groups[vert].variables[key][:].reshape( ncd, ndays, nlats, nlons ).mean(axis=1)
+                    clim[key+"_var"] += ( d.groups[vert].variables[key][:].reshape( ncd, ndays, nlats, nlons ).mean(axis=1) )**2 
 
             d.close()
 
@@ -169,7 +177,7 @@ def compute_climatology( yearrange:{tuple,list}, dataroot:str ):
 
     d.createDimension( "longitude", nlons )
     d.createDimension( "latitude", nlats )
-    d.createDimension( "zulu", nzulu )
+    d.createDimension( "zulu", ncd )
     d.createDimension( "month", 12 )
 
     #  Define select variables. 
@@ -227,7 +235,7 @@ def compute_climatology( yearrange:{tuple,list}, dataroot:str ):
 
     #  Write data values. 
 
-    d.variables['zulu'][:] = np.arange( 0.0, 24.0, int( 24.0/nzulu + 0.001 ) )
+    d.variables['zulu'][:] = np.arange( 0.0, 24.0, int( 24.0/ncd + 0.001 ) )
 
     for vname, value in out['select_variables'].items(): 
         d.variables[vname][:] = value['values']

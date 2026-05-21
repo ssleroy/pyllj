@@ -9,7 +9,7 @@ from netCDF4 import Dataset
 import numpy as np
 import boto3
 from time import time
-from .libpod import cycle_time, ModelOutput
+from .libpod import ModelOutput
 from ..parameters import RetClass, regions, gravity 
 
 
@@ -57,6 +57,7 @@ def compute_isohypses( yearmonth:str, dataroot:str, clobber:bool=False ):
     model = ModelOutput( dataroot )
     lons = model.lons * 1.0
     lats = model.lats * 1.0
+    ncd = int( timedelta(hours=24) / model.tdelta + 0.001 )
 
     #  Restrict to North America. 
 
@@ -93,11 +94,10 @@ def compute_isohypses( yearmonth:str, dataroot:str, clobber:bool=False ):
     #  Dimensions. 
 
     nlons, nlats = ilons.size, ilats.size 
-    nhours = int( 24 / cycle_time )
     dt0 = datetime( year=year, month=month, day=1 )
     dt1 = dt0 + timedelta(days=31)
     ndays = ( dt1 - dt0 ).days
-    ntimes = nhours * ndays
+    ntimes = ncd * ndays
 
     #  Create output file.
 
@@ -109,7 +109,7 @@ def compute_isohypses( yearmonth:str, dataroot:str, clobber:bool=False ):
     d_out.createDimension( 'longitude', nlons )
     d_out.createDimension( 'latitude', nlats )
     d_out.createDimension( 'level', olevels.size )
-    d_out.createDimension( 'hour', nhours )
+    d_out.createDimension( 'hour', ncd )
 
     #  Create new variables.
 
@@ -162,20 +162,20 @@ def compute_isohypses( yearmonth:str, dataroot:str, clobber:bool=False ):
     d_out.variables['longitude'][:] = lons[ilons]
     d_out.variables['latitude'][:] = lats[ilats]
     d_out.variables['level'][:] = olevels
-    d_out.variables['hour'][:] = np.arange( 0, 24, cycle_time )
+    d_out.variables['hour'][:] = np.arange( 0, 24, 24/ncd )
     d_out.variables['year'][:] = year
     d_out.variables['month'][:] = month
 
     #  Loop over time.
 
-    u = np.ma.zeros( (nhours,olevels.size,nlats,nlons), np.float32 ) 
-    v = np.ma.zeros( (nhours,olevels.size,nlats,nlons), np.float32 ) 
+    u = np.ma.zeros( (ncd,olevels.size,nlats,nlons), np.float32 ) 
+    v = np.ma.zeros( (ncd,olevels.size,nlats,nlons), np.float32 ) 
 
     print( 'Computing isohypsic analysis' )
 
     for itime in range(ntimes): 
-        dt = datetime( year=year, month=month, day=1 ) + itime * timedelta( hours=int(cycle_time) ) + model.toffset
-        ihour = int( dt.hour / cycle_time )
+        dt = datetime( year=year, month=month, day=1 ) + itime * model.tdelta + model.toffset
+        ihour = int( dt.hour * ncd / 24 )
 
         print( '  Time ' + dt.strftime( "%Y-%m-%d %H:%M" ) )
         sys.stdout.flush()

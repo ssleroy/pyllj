@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import argparse
 import numpy as np
 from netCDF4 import Dataset 
-from .libpod import RetClass, cycle_time, epoch, ModelOutput 
+from .libpod import RetClass, epoch, ModelOutput 
 from ..libutils import GridInterpolator 
 from ..parameters import boundaries, Rearth
 
@@ -53,7 +53,7 @@ def boundary_watervaporflux( boundary:str, daterange:{tuple,list}, dataroot:str 
     #  Set parameters, etc. 
 
     model = ModelOutput( dataroot )
-    ncd = int( 24.0 / cycle_time + 0.001 )
+    ncd = int( timedelta(hours=24) / model.tdelta + 0.001 )
 
     #  Establish lines of longitude, latitude along the boundaries. Keep track of normal 
     #  directions for each segment. 
@@ -113,7 +113,7 @@ def boundary_watervaporflux( boundary:str, daterange:{tuple,list}, dataroot:str 
 
     #  Commence loop over day. 
 
-    ntimes = int( (d2-d1+timedelta(days=1)) / timedelta(hours=cycle_time) + 0.001 )
+    ntimes = int( (d2-d1+timedelta(days=1)) / model.tdelta + 0.001 )
     times = []
     yearmonth, proj = None, None
     gappy_months = set()
