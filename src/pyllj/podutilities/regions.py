@@ -61,9 +61,12 @@ def plot_regions( legend=False, outputfile="regions.pdf" ):
             iregion = icurve
             region = regions[iregion]
             lonrange, latrange = region['longituderange'], region['latituderange']
-            lons = np.array( [ lonrange[0], lonrange[1], lonrange[1], lonrange[0], lonrange[0] ] )
-            lats = np.array( [ latrange[0], latrange[0], latrange[1], latrange[1], latrange[0] ] )
-            ax.plot( lons, lats, color=color, lw=1.5, label=region['name'] )
+            if lonrange.size == 2: 
+                lons = np.array( [ lonrange[0], lonrange[1], lonrange[1], lonrange[0], lonrange[0] ] )
+                lats = np.array( [ latrange[0], latrange[0], latrange[1], latrange[1], latrange[0] ] )
+                ax.plot( lons, lats, color=color, lw=1.5, label=region['name'] )
+            elif lonrange.size == 1: 
+                ax.scatter( lonrange, latrange, color=color, s=1.5 )
 
         else: 
 

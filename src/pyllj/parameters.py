@@ -25,6 +25,7 @@ zenodoversion = "20142370"      # Version 3
 
 regions = [ 
         # { 'name': "north-america", 'longituderange': np.array( [ -135.0, -60.0 ] ), 'latituderange': np.array( [ 15.0, 55.0 ] ) }, 
+        { 'name': "sgp", 'longituderange': np.array( [ -97.480 ] ), 'latituderange': np.array( [ 36.620 ] ) }, 
         { 'name': "great-plains", 'longituderange': np.array( [ -102.0, -92.0 ] ), 'latituderange': np.array( [ 30.0, 47.0 ] ) }, 
         { 'name': "southern-plains", 'longituderange': np.array( [ -101.0, -93.0 ] ), 'latituderange': np.array( [ 33.0, 40.0 ] ) } ]
 

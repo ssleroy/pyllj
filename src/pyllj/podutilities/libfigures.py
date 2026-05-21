@@ -22,6 +22,7 @@ class WindField():
         self.dx = dx
         self.dy = dy
         self.scale = scale
+        self.region = region
 
         print( f'Reading coordinate metadata from {analysisfile}' )
         d = Dataset( analysisfile, 'r' )
@@ -84,36 +85,54 @@ class WindField():
 
         d.close()
 
-        #  Define Great Plains LLJ mask. 
+        #  Define the mask. 
 
         rs = [ r for r in regions if r['name']==region ]
         if len( rs ) == 1: 
             r = rs[0]
         else: 
-            print( f'Region "region" is unavailable' )
+            print( f'Region "{region}" is unavailable' )
             return None
 
-        self.region = region
         lonrange, latrange = r['longituderange'] * 1, r['latituderange'] * 1
         lonrange[ lonrange<0 ] += 360
         self.bbox = { 'lonrange': lonrange, 'latrange': latrange }
 
-        dlons0 = self.mlons - self.bbox['lonrange'][0]
-        dlons1 = self.mlons - self.bbox['lonrange'][1]
+        if lonrange.size == 1 and latrange.size == 1: 
 
-        dlats0 = self.mlats - self.bbox['latrange'][0]
-        dlats1 = self.mlats - self.bbox['latrange'][1]
+            #  Select nearest gridpoint. 
 
-        if self.bbox['lonrange'][1] > self.bbox['lonrange'][0]: 
-            self.mask = np.logical_and( np.logical_and( dlons0 >= 0.0, dlons1 <= 0.0 ), \
-                    np.logical_and( dlats0 >= 0.0, dlats1 <= 0.0 ) ).astype( np.int8 )
+            mlons = np.deg2rad( self.mlons )
+            mlats = np.deg2rad( self.mlats )
+            lon = np.deg2rad( lonrange[0] )
+            lat = np.deg2rad( latrange[0] )
+
+            mp = np.array( [ np.cos(mlons) * np.cos(mlats), np.sin(mlons) * np.cos(mlats), np.sin(mlats) ] )
+            p = np.array( [ np.cos(lon) * np.cos(lat), np.sin(lon) * np.cos(lat), np.sin(lat) ] )
+            pmp = np.matmul( mp.T, p ).T
+            ii = np.argmax( pmp ).squeeze()
+            ilat, ilon = int( ii / mlons.shape[1] ), ( ii % mlons.shape[1] )
+            self.mask = np.zeros( mlons.shape, np.int8 )
+            self.mask[ilat,ilon] = 1
+
         else: 
-            self.mask = np.logical_and( np.logical_or( dlons0 >= 0.0, dlons1 <= 0.0 ), \
-                    np.logical_and( dlats0 >= 0.0, dlats1 <= 0.0 ) ).astype( np.int8 )
 
-        print( 'LLJ bounding box:' )
-        print( "  lonrange = " + ", ".join( [ f'{float(lon):.1f}' for lon in self.bbox['lonrange'] ] ) )
-        print( "  latrange = " + ", ".join( [ f'{float(lat):.1f}' for lat in self.bbox['latrange'] ] ) )
+            dlons0 = self.mlons - self.bbox['lonrange'][0]
+            dlons1 = self.mlons - self.bbox['lonrange'][1]
+
+            dlats0 = self.mlats - self.bbox['latrange'][0]
+            dlats1 = self.mlats - self.bbox['latrange'][1]
+
+            if self.bbox['lonrange'][1] > self.bbox['lonrange'][0]: 
+                self.mask = np.logical_and( np.logical_and( dlons0 >= 0.0, dlons1 <= 0.0 ), \
+                        np.logical_and( dlats0 >= 0.0, dlats1 <= 0.0 ) ).astype( np.int8 )
+            else: 
+                self.mask = np.logical_and( np.logical_or( dlons0 >= 0.0, dlons1 <= 0.0 ), \
+                        np.logical_and( dlats0 >= 0.0, dlats1 <= 0.0 ) ).astype( np.int8 )
+
+            print( 'LLJ bounding box:' )
+            print( "  lonrange = " + ", ".join( [ f'{float(lon):.1f}' for lon in self.bbox['lonrange'] ] ) )
+            print( "  latrange = " + ", ".join( [ f'{float(lat):.1f}' for lat in self.bbox['latrange'] ] ) )
 
         return
 
@@ -164,7 +183,7 @@ class WindField():
         return ax
 
 
-def compute_wind_barbs( model:str, region:str="southern-plains" ): 
+def compute_wind_barbs( model, modellabel:str=None, region:str="southern-plains" ): 
     """Compute the wind barbs for one of the models. A dictionary is returned containing 
     the related WindField instance for the model and the lengths of the u and v wind 
     components decomposed by month, hour, and height level above the surface."""
@@ -173,27 +192,34 @@ def compute_wind_barbs( model:str, region:str="southern-plains" ):
 
     analysisfile = get_metricpath( "isohypses", model )
     if analysisfile is None: 
-        analysisfile = os.path.join( DATAROOT, model, "isohypses", "isohypses.nc" )
-        modelname = os.path.split( model )[-1]
-    else: 
-        modelname = model
+        analysisfile = os.path.join( model, "isohypses", "isohypses.nc" )
+        if modellabel is None: 
+            ss = model.split( "/" )
+            if ss[-1] != "": 
+                modelname = ss[-1]
+            else: 
+                modelname = ss[-2]
+        else: 
+            modelname = modellabel
 
     WF = WindField( analysisfile, region=region, scale=150 )
 
     #  Wind barbs for region, annual cycle, diurnal cycle
 
     d = Dataset( analysisfile, 'r' )
-    uwnd = np.ma.zeros( ( 12, 8, WF.nz ), np.float32 )
-    vwnd = np.ma.zeros( ( 12, 8, WF.nz ), np.float32 )
+    hours = d.variables['hour'][:]
+    ncp = hours.size
+    uwnd = np.ma.zeros( ( 12, ncp, WF.nz ), np.float32 )
+    vwnd = np.ma.zeros( ( 12, ncp, WF.nz ), np.float32 )
 
     for imonth in range(12): 
-        for ihour in range(8): 
+        for ihour in range(ncp): 
             uwnd[imonth,ihour,:] = ( d.variables['uwnd'][imonth,ihour,:,:,:] * WF.mask ).reshape( (WF.nz,WF.nx*WF.ny) ).sum(axis=1) / WF.mask.sum()
             vwnd[imonth,ihour,:] = ( d.variables['vwnd'][imonth,ihour,:,:,:] * WF.mask ).reshape( (WF.nz,WF.nx*WF.ny) ).sum(axis=1) / WF.mask.sum()
 
     d.close()
 
-    ret = { 'model': modelname, 'WF': WF, 'uwnd': uwnd, 'vwnd': vwnd }
+    ret = { 'model': model, 'modelname': modelname, 'WF': WF, 'uwnd': uwnd, 'vwnd': vwnd, 'hours': hours }
     return ret
 
 
