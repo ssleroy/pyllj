@@ -183,8 +183,8 @@ def main():
     parser.add_argument( "modelroot", type=str, 
             help="The root directory of the model output" )
 
-    default_layer = "column"
-    parser.add_argument( "--layer", dest="layer", default="column", 
+    default_layer = "pbl"
+    parser.add_argument( "--layer", dest="layer", default=default_layer, 
             help=f'The name of the layer to diagnose; the default is "{default_layer}".' )
 
     parser.add_argument( "--label", dest="label", default="", 
