@@ -1,536 +1,23 @@
 import os 
 from datetime import datetime, timedelta 
-import boto3
-from pprint import pprint
-import warnings
 from netCDF4 import Dataset 
 import numpy as np 
-from ..libutils import LambertConformalProjection
+from pyllj.parameters import regions
+from pyllj.podutilities.libpod import get_metricpath
 import matplotlib.pyplot as plt
 from matplotlib import ticker
 import cartopy.crs as ccrs
-from cartopy.feature import BORDERS, STATES, OCEAN
-from pyukmo import UKMOcolorMaps 
+from cartopy.feature import STATES, OCEAN
+import warnings
 
 warnings.filterwarnings('ignore')
-
-#  Plotting defaults. 
-
-axeslinewidth = 0.5
-plt.rcParams.update( {
-  'font.family': "Times New Roman",
-  'font.size': 8,
-  'font.weight': "normal",
-  'text.usetex': True,
-  'xtick.major.width': axeslinewidth,
-  'xtick.minor.width': axeslinewidth,
-  'ytick.major.width': axeslinewidth,
-  'ytick.minor.width': axeslinewidth,
-  'axes.linewidth': axeslinewidth } )
-
-#  Other settings. 
-
-monthstrings = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split()
-
-DATAROOT = os.getenv( "DATAROOT" )
-print( f'DATAROOT = {DATAROOT}' )
-
-tmpdir = "tmp"
-os.makedirs( tmpdir, exist_ok=True )
-
-
-def plot_narr_llj_diagnostics( analysisfiles:{str,list}, pdffile:str, title=None ): 
-    """Generate a four-plot figure on the diagnostics of the LLJ over the 
-    U.S. Great Plains. The analysisfiles defines the path(s) to the output of 
-    pyllj.narr.compute_diagnostics and may be in an s3 bucket. 
-    The output is written to a PDF file (pdffile).
-
-    Arguments
-    =========
-    analysisfiles       A string or list of strings defining the paths to 
-                        analysis files output by pyllj.compute_diagnostics; 
-                        they exist in S3 buckets, in which case the string(s) 
-                        should be prefixed by "s3://".
-
-    pdffile             A string defining the path to the output PDF file on 
-                        the local file system. 
-
-    title               An optional title to put at the top of the figure.
-    """
-
-    #  Get S3 object as needed. 
-
-    if isinstance(analysisfiles,list): 
-        infiles = analysisfiles
-    elif isinstance(analysisfiles,str): 
-        infiles = [ analysisfiles ]
-    else: 
-        print( 'The input analysisfiles must be an instance of str or list.' )
-        return
-
-
-    #  Check to see if all or none of the input files are in an S3 bucket.
-
-    stest = np.array( [ infile[:5]=="s3://" for infile in infiles ], dtype=np.int8 )
-    if int( stest.sum() ) not in [ 0, len(infiles) ]: 
-        print( 'Either all or none of the input analysisfiles should be in an S3 bucket.' )
-        return
-    s3 = ( stest.sum() > 0 )
-
-    #  S3 prep...
-
-    if s3: 
-
-        local_paths = []
-        bucket_name = infiles[0][5:].split( "/" )[0]
-
-        #  Check to see that all infiles are in the same S3 bucket. 
-
-        for infile in infiles[1:]: 
-            ss1 = infile[5:].split( "/" )
-            if ss1[0] != bucket_name: 
-                print( f'S3 bucket name mismatch: {ss[0]}' )
-                return
-
-        #  Access to S3 bucket. 
-
-        session = boto3.Session( region_name="us-east-1" )
-        s3 = session.resource( "s3" ).Bucket( bucket_name )
-
-        #  Download S3 objects. 
-
-        for infile in infiles: 
-
-            ss = infile[5:].split( "/" )
-            bucket_path = "/".join( ss[1:] )
-            objs = [ obj for obj in s3.objects.all().filter( Prefix=bucket_path ) ]
-
-            if len(objs) == 0: 
-                print( f'No S3 object {infile} was found.' )
-                return
-            elif len(objs) > 1: 
-                print( f'More than one object {infile} was found.' )
-                return
-            else: 
-                obj = objs[0]
-
-            local_path = os.path.join( tmpdir, ss[-1] )
-            if not os.path.exists( local_path ): 
-                print( f'Downloading {local_path}' )
-                s3.download_file( obj.key, local_path )
-            local_paths.append( local_path )
-
-    else: 
-
-        local_paths = infiles
-
-    #  Open and read analysisfiles. 
-
-    wind, height = [], []
-
-    for local_path in local_paths: 
-        print( f'Reading {local_path}' )
-        a = Dataset( local_path, 'r' )
-        lons = a.variables['lons'][:]
-        lats = a.variables['lats'][:]
-        wind.append( a.variables['wind'][:] )
-        height.append( a.variables['height'][:] )
-        a.close()
-
-    wind = np.ma.concatenate( wind )
-    height = np.ma.concatenate( height )
-
-    ndays, nhours, ny, nx = wind.shape
-
-    #  Count events; compute mean heights and winds. 
-
-    print( f'Computing diagnostics' )
-
-    events = np.logical_not( wind.mask )
-    nevents = events.sum(axis=1).sum(axis=0)
-    ndailyevents = events.any(axis=1).sum(axis=0)
-
-    eventProbability = nevents / ( ndays * nhours )
-    dailyeventProbability = ndailyevents / ndays
-    meanheight = height.reshape( (ndays*nhours,ny,nx) ).mean(axis=0) 
-    meanwind = wind.reshape( (ndays*nhours,ny,nx) ).mean(axis=0) 
-
-    #  Mask. 
-
-    mask = ( nevents == 0 )
-    imask = ( eventProbability < 0.05 )
-    eventProbability = np.ma.masked_where( mask, eventProbability )
-    dailyeventProbability = np.ma.masked_where( mask, dailyeventProbability )
-    meanheight = np.ma.masked_where( imask, meanheight )
-    meanwind = np.ma.masked_where( imask, meanwind )
-
-    #  Pyplot defaults. 
-
-    axeslinewidth = 0.5
-    plt.rcParams.update( {
-        'font.family': "Times New Roman", 
-        'font.size': 9, 
-        'font.weight': "normal", 
-        'text.usetex': True, 
-        'xtick.major.width': axeslinewidth, 
-        'xtick.minor.width': axeslinewidth, 
-        'ytick.major.width': axeslinewidth, 
-        'ytick.minor.width': axeslinewidth, 
-        'axes.linewidth': axeslinewidth } )
-
-    proj = ccrs.PlateCarree
-
-    #  Set up figure. 
-
-    print( f'Generating figure' )
-
-    cm = 2.54
-    # fig = plt.figure( figsize=(16/cm,14/cm) )
-    fig = plt.figure( figsize=(6.5,2.0) )
-    # nxplots, nyplots = 2, 2
-    nxplots, nyplots = 3, 1
-    nplots = nxplots * nyplots
-
-    subpos = np.array( [ 0.02, 0.30, 0.98, 0.98 ] )
-    wpos = np.array( [ 0.10, 0.22, 0.90, 0.25 ] )
-
-    if title is None: 
-        plotwindow = { 'pos': np.array( [ 0.0, 0.0, 1.0, 1.0 ] ) }
-    else: 
-        plotwindow = { 'pos': [ 0.0, 0.0, 1.0, 0.95 ] }
-        ax = fig.add_axes( [ 0.0, 0.0, 1.0, 0.95 ] )
-        ax.set_axis_off()
-        ax.set_title( title )
-
-    p = plotwindow['pos']
-    plotwindow.update( { 'offset': p[1] + (p[0]-p[1]) * np.array([1,0,1,0]) } )
-    plotwindow.update( { 'scale': ( p[2] - p[0] ) * np.array([1,0,1,0]) + ( p[3] - p[1] ) * np.array([0,1,0,1]) } )
-
-    #  Define colormaps. 
-
-    ukm = UKMOcolorMaps()
-
-    #  Define plots. 
-
-    plotmeta = [ 
-            { 'field': eventProbability * 100, 
-              'label': r'Probability of Occurrence [\%]', 
-              'levels': np.arange(0,50.1,2), 
-              'ticks': np.arange(0,50.1,10), 
-              'colorscale': 9, 
-              'extend': "max", 
-              'tophalf': True
-            }, 
-            { 'field': dailyeventProbability * 100, 
-              'label': r'Probability of Daily Occurrence [\%]', 
-              'levels': np.arange(0,100.1,5), 
-              'ticks': np.arange(0,100.1,20), 
-              'colorscale': 11, 
-              'extend': "neither", 
-              'tophalf': True 
-            }, 
-            { 'field': meanheight, 
-              'label': "Height of LLJ [m]", 
-              'levels': np.arange(300,800.1,25), 
-              'ticks': np.arange(400,800.1,200), 
-              'colorscale': 25, 
-              'extend': "max", 
-              'tophalf': False 
-            }, 
-            { 'field': meanwind, 
-              'label': "Speed of LLJ [m/s]", 
-              'levels': np.arange(12,20.1,0.5), 
-              'ticks': np.arange(12,20.1,2), 
-              'colorscale': 0, 
-              'extend': "max", 
-              'tophalf': False 
-            }, 
-        ]
-
-    plotmeta = plotmeta[1:]
-    
-    #  Loop over axes. 
-
-    for iax, meta in enumerate(plotmeta): 
-
-        ix = iax % nxplots 
-        iy = nyplots - 1 - int(iax/nxplots)
-
-        #  Position and limits of contour plot. 
-
-        pos = ( subpos + np.array( [ix,iy,ix,iy] ) ) / np.array([nxplots,nyplots,nxplots,nyplots])
-        pos = plotwindow['offset'] + plotwindow['scale'] * pos
-        pos = np.array( [ pos[0], pos[1], pos[2]-pos[0], pos[3]-pos[1] ] )
-
-        ax = fig.add_axes( pos, projection=proj() )
-        ax.set_xlim( -130, -60 )
-        ax.set_ylim( 20, 50 )
-        ax.set_aspect('auto')
-
-        #  Map features. 
-
-        ax.coastlines( resolution="50m", linewidth=0.1, color="black" )
-        ax.add_feature( BORDERS, linewidth=0.1 )
-        ax.add_feature( STATES, linewidth=0.1 )
-
-        #  Contour plot. 
-
-        cmap = ukm.get_cmap( meta['colorscale'] )
-        colors = []
-        if meta['tophalf']: 
-            for ilevel, level in enumerate(meta['levels']): 
-                colors.append( cmap( 0.5 + 0.5 * ( level - meta['levels'].min() ) / ( meta['levels'].max() - meta['levels'].min() ) ) )
-        else: 
-            for ilevel, level in enumerate(meta['levels']): 
-                colors.append( cmap( ( level - meta['levels'].min() ) / ( meta['levels'].max() - meta['levels'].min() ) ) )
-
-        cax = ax.contourf( lons, lats, meta['field'], levels=meta['levels'], colors=colors, extend=meta['extend'], transform=proj() )
-        ax.contour( lons, lats, meta['field'], levels=meta['ticks'], linewidths=0.6, colors="k", transform=proj() )
-
-        #  Colorbar. 
-
-        pos = ( wpos + np.array( [ix,iy,ix,iy] ) ) / np.array([nxplots,nyplots,nxplots,nyplots])
-        pos = plotwindow['offset'] + plotwindow['scale'] * pos
-        pos = np.array( [ pos[0], pos[1], pos[2]-pos[0], pos[3]-pos[1] ] )
-
-        cbar = fig.add_axes( pos )
-        fig.colorbar( cax, cbar, orientation="horizontal", ticks=meta['ticks'], label=meta['label'] )
-
-    #  Done with plot. Write to output. 
-
-    print( f'Creating {pdffile}' )
-    fmt = pdffile.split(".")[-1]
-    fig.savefig( pdffile, format=fmt )
-
-    #  Remove local paths if they were downloaded from an S3 bucket. 
-
-    if s3: 
-        for local_path in local_paths: 
-            os.unlink( local_path )
-            pass 
-
-    return
-
-
-def plot_llj_diagnostics( analysisfiles:{str,list}, pdffile:str, title=None ): 
-    """Generate a four-plot figure on the diagnostics of the LLJ over the 
-    U.S. Great Plains. The analysisfiles defines the path(s) to the output of 
-    ERA5 or MERRA-2 compute_diagnostics. The output is written to a PDF file 
-    (pdffile).
-
-    Arguments
-    =========
-    analysisfiles       A string or list of strings defining the paths to 
-                        analysis files output by pyllj.{model}.compute_diagnostics. 
-
-    pdffile             A string defining the path to the output PDF file on 
-                        the local file system. 
-
-    title               An optional title to put at the top of the figure.
-    """
-
-    if isinstance(analysisfiles,list): 
-        infiles = analysisfiles
-    elif isinstance(analysisfiles,str): 
-        infiles = [ analysisfiles ]
-    else: 
-        print( 'The input analysisfiles must be an instance of str or list.' )
-        return
-
-    #  Open and read analysisfiles. 
-
-    wind, height = [], []
-
-    for analysisfile in analysisfiles: 
-        print( f'Reading {analysisfile}' )
-        a = Dataset( analysisfile, 'r' )
-        lons = a.variables['lons'][:]
-        lats = a.variables['lats'][:]
-        wind.append( a.variables['wind'][:] )
-        height.append( a.variables['height'][:] )
-        a.close()
-
-    wind = np.ma.concatenate( wind )
-    height = np.ma.concatenate( height )
-
-    ndays, nhours, nlats, nlons = wind.shape
-
-    #  Count events; compute mean heights and winds. 
-
-    print( f'Computing diagnostics' )
-
-    events = np.logical_not( wind.mask )
-    nevents = events.sum(axis=1).sum(axis=0)
-    ndailyevents = events.any(axis=1).sum(axis=0)
-
-    eventProbability = nevents / ( ndays * nhours )
-    dailyeventProbability = ndailyevents / ndays
-    meanheight = height.reshape( (ndays*nhours,nlats,nlons) ).mean(axis=0) 
-    meanwind = wind.reshape( (ndays*nhours,nlats,nlons) ).mean(axis=0) 
-
-    #  Mask. 
-
-    mask = ( nevents == 0 )
-    imask = ( eventProbability < 0.05 )
-    eventProbability = np.ma.masked_where( mask, eventProbability )
-    dailyeventProbability = np.ma.masked_where( mask, dailyeventProbability )
-    meanheight = np.ma.masked_where( imask, meanheight )
-    meanwind = np.ma.masked_where( imask, meanwind )
-
-    #  Pyplot defaults. 
-
-    axeslinewidth = 0.5
-    plt.rcParams.update( {
-        'font.family': "Times New Roman", 
-        'font.size': 9, 
-        'font.weight': "normal", 
-        'text.usetex': True, 
-        'xtick.major.width': axeslinewidth, 
-        'xtick.minor.width': axeslinewidth, 
-        'ytick.major.width': axeslinewidth, 
-        'ytick.minor.width': axeslinewidth, 
-        'axes.linewidth': axeslinewidth } )
-
-    proj = ccrs.PlateCarree
-
-    #  Set up figure. 
-
-    print( f'Generating figure' )
-
-    cm = 2.54
-    # fig = plt.figure( figsize=(16/cm,14/cm) )
-    fig = plt.figure( figsize=(6.5,2.0) )
-    
-    # nxplots, nyplots = 2, 2
-    nxplots, nyplots = 3, 1
-    nplots = nxplots * nyplots
-
-    subpos = np.array( [ 0.02, 0.30, 0.98, 0.98 ] )
-    wpos = np.array( [ 0.10, 0.22, 0.90, 0.25 ] )
-
-    if title is None: 
-        plotwindow = { 'pos': np.array( [ 0.0, 0.0, 1.0, 1.0 ] ) }
-    else: 
-        plotwindow = { 'pos': [ 0.0, 0.0, 1.0, 0.95 ] }
-        ax = fig.add_axes( [ 0.0, 0.0, 1.0, 0.95 ] )
-        ax.set_axis_off()
-        ax.set_title( title )
-
-    p = plotwindow['pos']
-    plotwindow.update( { 'offset': p[1] + (p[0]-p[1]) * np.array([1,0,1,0]) } )
-    plotwindow.update( { 'scale': ( p[2] - p[0] ) * np.array([1,0,1,0]) + ( p[3] - p[1] ) * np.array([0,1,0,1]) } )
-
-    #  Define colormaps. 
-
-    ukm = UKMOcolorMaps()
-
-    #  Define plots. 
-
-    plotmeta = [ 
-            { 'field': eventProbability * 100, 
-              'label': r'Probability of Occurrence [%]', 
-              'levels': np.arange(0,50.1,2), 
-              'ticks': np.arange(0,50.1,10), 
-              'colorscale': 9, 
-              'extend': "max", 
-              'tophalf': True
-            }, 
-            { 'field': dailyeventProbability * 100, 
-              'label': r'Probability of Daily Occurrence [%]', 
-              'levels': np.arange(0,100.1,5), 
-              'ticks': np.arange(0,100.1,20), 
-              'colorscale': 11, 
-              'extend': "neither", 
-              'tophalf': True 
-            }, 
-            { 'field': meanheight, 
-              'label': "Height of LLJ [m]", 
-              'levels': np.arange(300,800.1,25), 
-              'ticks': np.arange(400,800.1,200), 
-              'colorscale': 25, 
-              'extend': "max", 
-              'tophalf': False 
-            }, 
-            { 'field': meanwind, 
-              'label': "Speed of LLJ [m/s]", 
-              'levels': np.arange(12,20.1,0.5), 
-              'ticks': np.arange(12,20.1,2), 
-              'colorscale': 0, 
-              'extend': "max", 
-              'tophalf': False 
-            }, 
-        ]
-
-    plotmeta = plotmeta[1:]
-    
-    #  Loop over axes. 
-
-    for iax, meta in enumerate(plotmeta): 
-
-        ix = iax % nxplots 
-        iy = nyplots - 1 - int(iax/nxplots)
-
-        #  Position and limits of contour plot. 
-
-        pos = ( subpos + np.array( [ix,iy,ix,iy] ) ) / np.array([nxplots,nyplots,nxplots,nyplots])
-        pos = plotwindow['offset'] + plotwindow['scale'] * pos
-        pos = np.array( [ pos[0], pos[1], pos[2]-pos[0], pos[3]-pos[1] ] )
-
-        ax = fig.add_axes( pos, projection=proj() )
-        ax.set_xlim( -130, -60 )
-        ax.set_ylim( 20, 50 )
-        ax.set_aspect('auto')
-
-        #  Map features. 
-
-        ax.coastlines( resolution="50m", linewidth=0.1, color="black" )
-        ax.add_feature( BORDERS, linewidth=0.1 )
-        ax.add_feature( STATES, linewidth=0.1 )
-
-        #  Contour plot. 
-
-        cmap = ukm.get_cmap( meta['colorscale'] )
-        colors = []
-        if meta['tophalf']: 
-            for ilevel, level in enumerate(meta['levels']): 
-                colors.append( cmap( 0.5 + 0.5 * ( level - meta['levels'].min() ) / ( meta['levels'].max() - meta['levels'].min() ) ) )
-        else: 
-            for ilevel, level in enumerate(meta['levels']): 
-                colors.append( cmap( ( level - meta['levels'].min() ) / ( meta['levels'].max() - meta['levels'].min() ) ) )
-
-        cax = ax.contourf( lons, lats, meta['field'], levels=meta['levels'], colors=colors, extend=meta['extend'], transform=proj() )
-        ax.contour( lons, lats, meta['field'], levels=meta['ticks'], linewidths=0.6, colors="k", transform=proj() )
-
-        #  Colorbar. 
-
-        pos = ( wpos + np.array( [ix,iy,ix,iy] ) ) / np.array([nxplots,nyplots,nxplots,nyplots])
-        pos = plotwindow['offset'] + plotwindow['scale'] * pos
-        pos = np.array( [ pos[0], pos[1], pos[2]-pos[0], pos[3]-pos[1] ] )
-
-        cbar = fig.add_axes( pos )
-        fig.colorbar( cax, cbar, orientation="horizontal", ticks=meta['ticks'], label=meta['label'] )
-
-    #  Done with plot. Write to output. 
-
-    print( f'Creating {pdffile}' )
-    fmt = pdffile.split(".")[-1]
-    fig.savefig( pdffile, format=fmt )
-
-    #  Remove local paths if they were downloaded from an S3 bucket. 
-
-    if s3: 
-        for local_path in local_paths: 
-            os.unlink( local_path )
-            pass 
-
-    return
 
 
 # Define a class for vector field plotting. 
 
 class WindField(): 
 
-    def __init__( self, analysisfile, dx=6, dy=6, scale=300.0 ): 
+    def __init__( self, analysisfile, dx=6, dy=6, region:str="great-plains", scale=300.0 ): 
 
         self.dx = dx
         self.dy = dy
@@ -599,7 +86,17 @@ class WindField():
 
         #  Define Great Plains LLJ mask. 
 
-        self.bbox = { 'lonrange': [ 360-102, 360-95 ], 'latrange': [ 30, 37 ] }
+        rs = [ r for r in regions if r['name']==region ]
+        if len( rs ) == 1: 
+            r = rs[0]
+        else: 
+            print( f'Region "region" is unavailable' )
+            return None
+
+        self.region = region
+        lonrange, latrange = r['longituderange'] * 1, r['latituderange'] * 1
+        lonrange[ lonrange<0 ] += 360
+        self.bbox = { 'lonrange': lonrange, 'latrange': latrange }
 
         dlons0 = self.mlons - self.bbox['lonrange'][0]
         dlons1 = self.mlons - self.bbox['lonrange'][1]
@@ -667,15 +164,21 @@ class WindField():
         return ax
 
 
-def compute_wind_barbs( model:{"narr","merra2","era5"} ): 
+def compute_wind_barbs( model:str, region:str="southern-plains" ): 
     """Compute the wind barbs for one of the models. A dictionary is returned containing 
     the related WindField instance for the model and the lengths of the u and v wind 
     components decomposed by month, hour, and height level above the surface."""
 
     #  Create a WindField instance. 
 
-    analysisfile = os.path.join( DATAROOT, model.upper(), "isohypses", f"{model}_isohypses.2000-2024.nc" )
-    WF = WindField( analysisfile, scale=150 )
+    analysisfile = get_metricpath( "isohypses", model )
+    if analysisfile is None: 
+        analysisfile = os.path.join( DATAROOT, model, "isohypses", "isohypses.nc" )
+        modelname = os.path.split( model )[-1]
+    else: 
+        modelname = model
+
+    WF = WindField( analysisfile, region=region, scale=150 )
 
     #  Wind barbs for region, annual cycle, diurnal cycle
 
@@ -690,7 +193,7 @@ def compute_wind_barbs( model:{"narr","merra2","era5"} ):
 
     d.close()
 
-    ret = { 'model': model, 'WF': WF, 'uwnd': uwnd, 'vwnd': vwnd }
+    ret = { 'model': modelname, 'WF': WF, 'uwnd': uwnd, 'vwnd': vwnd }
     return ret
 
 
@@ -703,7 +206,7 @@ def plot_wind_barbs( wind_barbs ):
     vwnd = wind_barbs['vwnd']
     WF = wind_barbs['WF']
 
-    outputfile = f"{model}_wind_profiles.great-plains.pdf"
+    outputfile = f"{model}_wind_profiles.{WF.region}.pdf"
     nx, ny = 4, 3
 
     xticks = np.arange( 0, 24, 3, dtype=np.int32 )
