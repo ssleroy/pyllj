@@ -8,7 +8,7 @@ import numpy as np
 from netCDF4 import Dataset 
 from .libmerra2 import RetClass, cycle_time, epoch
 from ..libutils import GridInterpolator 
-from ..parameters import boundaries, default_dataroot, Rearth
+from ..parameters import boundaries, boundarynames, default_dataroot, Rearth
 
 watervaporflux_subdir = "MERRA2/watervaporflux"
 output_subdir = "MERRA2/boundaryflux"
@@ -39,10 +39,11 @@ def boundary_watervaporflux( boundary, daterange:{tuple,list}, dataroot=default_
 
     #  Check input. 
 
-    if boundary not in boundaries.keys(): 
+    if boundary not in boundarynames: 
         print( f'Boundary "{boundary}" not a valid value. Availables boundaries are ' + \
-                ", ".join( sorted( list( boundaries.keys() ) ) ) + "." )
+                ", ".join( boundarynames ) + "." )
         return None
+    bb = [ b for b in boundaries if b['name']==boundary ][0]
 
     #  Date range. 
 
@@ -57,8 +58,8 @@ def boundary_watervaporflux( boundary, daterange:{tuple,list}, dataroot=default_
 
     resolution = 1.0e3          #  Maximum segement length [meters]. 
 
-    slons = np.deg2rad( boundaries[boundary]['lons'] )
-    slats = np.deg2rad( boundaries[boundary]['lats'] )
+    slons = np.deg2rad( bb['lons'] )
+    slats = np.deg2rad( bb['lats'] )
 
     #  Wrap around date line if necessary. 
 
@@ -343,7 +344,7 @@ def main():
 
     parser.add_argument( "boundary", type=str, 
             help="""Specify which boundary across which to compute mass flux of water 
-            vapor. Valid values are: """ + ", ".join( [ f'"{b}"' for b in boundaries.keys() ] ) + ". " + \
+            vapor. Valid values are: """ + ", ".join( [ f'"{b}"' for b in boundarynames ] ) + ". " + \
             "The actual path of the boundary will be written into the output file." )
 
     parser.add_argument( "daterange", type=str, 

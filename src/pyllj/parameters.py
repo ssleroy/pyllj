@@ -24,15 +24,16 @@ zenodoversion = "20142370"      # Version 3
 #  Define regions. 
 
 regions = [ 
-        { 'name': "north-america", 'longituderange': np.array( [ -135.0, -60.0 ] ), 'latituderange': np.array( [ 15.0, 55.0 ] ) }, 
-        { 'name': "great-plains", 'longituderange': np.array( [ -100.0, -92.0 ] ), 'latituderange': np.array( [ 30.0, 37.0 ] ) }, 
+        # { 'name': "north-america", 'longituderange': np.array( [ -135.0, -60.0 ] ), 'latituderange': np.array( [ 15.0, 55.0 ] ) }, 
+        { 'name': "great-plains", 'longituderange': np.array( [ -102.0, -92.0 ] ), 'latituderange': np.array( [ 30.0, 47.0 ] ) }, 
         { 'name': "southern-plains", 'longituderange': np.array( [ -101.0, -93.0 ] ), 'latituderange': np.array( [ 33.0, 40.0 ] ) } ]
 
 #  Boundaries used for evaluating cross-boundary column water fluxes. 
 
-boundaries = {
-        'gulf-coast': {
-                'lons': [ -97.69, -97.46, -97.17, -96.28, -93.39, -90.24, -89.23, -87.18 ],
-                'lats': [ 23.29, 26.82, 27.87, 28.56, 29.67, 29.19, 30.25, 30.30 ] }
-            }
+boundaries = [
+        { 'name': "gulf-coast", 
+            'lons': [ -97.69, -97.46, -97.17, -96.28, -93.39, -90.24, -89.23, -87.18 ],
+            'lats': [ 23.29, 26.82, 27.87, 28.56, 29.67, 29.19, 30.25, 30.30 ] }
+        ]
+boundarynames = sorted( [ b['name'] for b in boundaries ] )
 
