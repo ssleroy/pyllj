@@ -68,7 +68,8 @@ compute_isohypses = "pyllj.podutilities.compute_isohypses:main"
 compute_isohypses_climatology = "pyllj.podutilities.compute_isohypses_climatology:main"
 compute_boundary_watervaporflux = "pyllj.podutilities.boundary_watervaporflux:main"
 
-watervaporflux = "pyllj.podutilities.watervaporflux:main"
 diagnostics = "pyllj.podutilities.diagnostics:main"
+speedheight = "pyllj.podutilities.speedheight:main"
+watervaporflux = "pyllj.podutilities.watervaporflux:main"
 boundaryflux = "pyllj.podutilities.boundaryflux:main"
 
