@@ -45,10 +45,12 @@ def plot_speed_height_distributions( region:str,
         ret.update( success=False, messages="InvalidArgument", comments=f'Region "{region}" is unrecognized.' )
         return ret
 
-    lonbounds = rs[0]['longituderange'].tolist()
-    latbounds = rs[0]['latituderange'].tolist()
+    lonbounds = rs[0]['longituderange'] * 1.0
+    latbounds = rs[0]['latituderange'] * 1.0
 
-    print( 'Setting region mask to lonbounds = [ {:}, {:} ] and latbounds = [ {:}, {:} ]'.format( *lonbounds, *latbounds ) )
+    #  Justify longitude range. 
+
+    lonbounds[ lonbounds < 0.0 ] += 360
 
     #  Configure dimensions. 
 
@@ -66,8 +68,8 @@ def plot_speed_height_distributions( region:str,
 
     histmeta = { 'range': ( (12,24), (0,1000) ), 'bins': (24,100), 'density': False }
 
-    levels = np.arange( 0.00, 0.6001, 0.01 )
-    clevels = np.arange( 0.00, 0.6001, 0.20 )
+    levels = np.arange( 0.00, 1.0001, 0.02 )
+    clevels = np.arange( 0.00, 1.0001, 0.20 )
 
     #  Loop over reanalyses (and model). 
 
@@ -75,7 +77,7 @@ def plot_speed_height_distributions( region:str,
 
         if iplot < len( reanalyses ): 
             plotlabel = reanalyses[iplot].upper()
-            p = os.path.join( default_dataroot, reanalysis.upper(), "diagnostics" )
+            p = os.path.join( default_dataroot, plotlabel, "diagnostics" )
             local_paths = sorted( [ os.path.join(p,f) for f in os.listdir(p) \
                     if re.search( r'diagnostics.\d{6}.nc$', f ) ] )
 
@@ -122,11 +124,16 @@ def plot_speed_height_distributions( region:str,
 
                 glons[ glons < 0.0 ] += 360
 
-                #  Mask to the Great Plains. 
+                #  Mask to the desired region. 
 
-                gp = np.logical_and( \
-                        np.logical_and( glons > lonbounds[0], glons < lonbounds[1] ), \
-                        np.logical_and( glats > latbounds[0], glats < latbounds[1] ) )
+                if lonbounds[1] > lonbounds[0]: 
+                    gp = np.logical_and( \
+                            np.logical_and( glons > lonbounds[0], glons < lonbounds[1] ), \
+                            np.logical_and( glats > latbounds[0], glats < latbounds[1] ) )
+                else: 
+                    gp = np.logical_and( \
+                            np.logical_or( glons > lonbounds[0], glons < lonbounds[1] ), \
+                            np.logical_and( glats > latbounds[0], glats < latbounds[1] ) )
 
                 first = False 
 
@@ -147,8 +154,8 @@ def plot_speed_height_distributions( region:str,
 
         #  Plot histogram. 
 
-        pos = np.array( [ 0.02 + imodel, 0.12, 0.92, 0.76 ] ) 
-        pos = pos / np.array( [ nmodels, 1, nmodels, 1 ] )
+        pos = np.array( [ 0.02 + iplot, 0.12, 0.92, 0.76 ] ) 
+        pos = pos / np.array( [ nplots, 1, nplots, 1 ] )
         pos = pos * np.array( [ 1-xmargin/xsize, 1-ymargin/ysize, 1-xmargin/xsize, 1-ymargin/ysize ] ) \
                 + np.array( [ xmargin/xsize, ymargin/ysize, 0, 0 ] )
         ax = fig.add_axes( pos )
