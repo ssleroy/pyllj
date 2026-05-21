@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator 
 import cartopy.crs as ccrs
 from cartopy.feature import BORDERS, STATES, OCEAN
-from pyllj.parameters import regions 
+from pyllj.parameters import regions, default_dataroot
 from pyllj.libutils import RetClass 
 from .libpod import get_metricpath
 from .pyukmo import UKMOcolorMaps
@@ -75,7 +75,7 @@ def plot_speed_height_distributions( region:str,
 
         if iplot < len( reanalyses ): 
             plotlabel = reanalyses[iplot].upper()
-            p = os.path.join( DATAROOT, reanalysis.upper(), "diagnostics" )
+            p = os.path.join( default_dataroot, reanalysis.upper(), "diagnostics" )
             local_paths = sorted( [ os.path.join(p,f) for f in os.listdir(p) \
                     if re.search( r'diagnostics.\d{6}.nc$', f ) ] )
 
