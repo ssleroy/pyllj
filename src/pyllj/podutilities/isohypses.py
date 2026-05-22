@@ -96,10 +96,10 @@ class WindBarbs():
 
         imonths1, imonths2 = [], []
         for imonth1, month1 in enumerate( self.months.tolist() ): 
-            i = np.argwhere( other.months == month1 )
+            i = np.argwhere( other.months == month1 ).squeeze()
             if i.size == 1: 
                 imonths1.append( imonth1 )
-                imonths2.append( int( i[0] ) )
+                imonths2.append( i ) 
         imonths1 = np.array( imonths1 )
         imonths2 = np.array( imonths2 )
         months = self.months[imonths1]
@@ -108,10 +108,10 @@ class WindBarbs():
 
         ihours1, ihours2 = [], []
         for ihour1, hour1 in enumerate( self.hours.tolist() ): 
-            i = np.argwhere( other.hours == hour1 )
+            i = np.argwhere( other.hours == hour1 ).squeeze()
             if i.size == 1: 
                 ihours1.append( ihour1 )
-                ihours2.append( int( i[0] ) )
+                ihours2.append( i )
         ihours1 = np.array( ihours1 )
         ihours2 = np.array( ihours2 )
         hours = self.hours[ihours1]
