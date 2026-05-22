@@ -1,3 +1,16 @@
+"""Library of tools useful in POD analysis and plotting. 
+
+Authors: Stephen Leroy (stephen.leroy@janusresearch.us), 
+        Sara Vannah (sara.vannah@janusresearch.us)
+Date: May 22, 2026
+
+Contents
+========
+class ModelOutput               Creates a portal to the atmospheric model output
+class WindField                 Defines a wind field and provides a method to plot it
+function get_metricpath         Retrieves and references an LLJ metric
+"""
+
 import os
 import re
 import json
@@ -10,12 +23,35 @@ from tqdm import tqdm
 from time import time
 from scipy.interpolate import interp1d, CubicHermiteSpline
 from ..libutils import RetClass 
-from ..parameters import Rearth, Rideal, gravity, muvap, mudry, default_dataroot, aws_region, bucket, zenodoversion
+from ..parameters import Rearth, Rideal, gravity, muvap, mudry, default_dataroot, \
+        aws_region, bucket, zenodoversion, regions, boundaries
+import matplotlib.pyplot as plt
+from matplotlib import ticker
+import cartopy.crs as ccrs
+from cartopy.feature import STATES, OCEAN
+import warnings
+
+warnings.filterwarnings('ignore')
+
+#  Pyplot settings. 
+
+axeslinewidth = 0.5 
+plt.rcParams.update( {
+  'font.family': "Times New Roman", 
+  'font.size': 8,
+  'font.weight': "normal",
+  'text.usetex': True,
+  'xtick.major.width': axeslinewidth,
+  'xtick.minor.width': axeslinewidth, 
+  'ytick.major.width': axeslinewidth, 
+  'ytick.minor.width': axeslinewidth, 
+  'axes.linewidth': axeslinewidth } ) 
+
+#  Constants and defaults. 
 
 fill_float = -1.0e20
 epoch = datetime( year=1980, month=1, day=1 )
 output_time_units = "hours"
-
 
 #  Caching, download. 
 
@@ -24,11 +60,6 @@ rcfile = os.path.expanduser( "~/.pylljrc" )
 #  Subdirectory of post-processed model output. 
 
 modeloutput_subdir = "work/pp"
-
-#  Define North America region. 
-
-region = { 'name': "North America", 'longitude_range': [230,300], 'latitude_range': [20,50] }
-
 
 #  Exception handling. 
 
@@ -310,4 +341,176 @@ class ModelOutput():
             if fm['open'] is not None: 
                 fm['open'].close()
                 fm['open'] = None
+
+
+################################################################################
+#  Define a class for vector field plotting. 
+################################################################################
+
+class WindField(): 
+
+    def __init__( self, analysisfile, dx=6, dy=6, region:str="great-plains", scale=300.0 ): 
+
+        self.dx = dx
+        self.dy = dy
+        self.scale = scale
+        self.region = region
+
+        print( f'Reading coordinate metadata from {analysisfile}' )
+        d = Dataset( analysisfile, 'r' )
+
+        #  Get coordinates. 
+
+        self.months = d.variables['month'][:]
+        self.levels = d.variables['level'][:]
+        self.hours = d.variables['hour'][:]
+
+        if "lon" in d.variables.keys(): 
+            self.lons = d.variables['lon'][:]
+        elif "longitude" in d.variables.keys(): 
+            self.lons = d.variables['longitude'][:]
+
+        if "lat" in d.variables.keys(): 
+            self.lats = d.variables['lat'][:]
+        elif "latitude" in d.variables.keys(): 
+            self.lats = d.variables['latitude'][:]
+
+        self.lons[ self.lons < 0 ] += 360
+        self.lons[ self.lons >= 360.0 ] -= 360
+
+        if len( self.lons.shape ) == 2: 
+            self.lambert = True
+            self.nx = d.dimensions['x'].size
+            self.ny = d.dimensions['y'].size
+            self.nz = self.levels.size
+            self.mlons = self.lons
+            self.mlats = self.lats
+        else: 
+            self.lambert = False
+            self.nx = self.lons.size
+            self.ny = self.lats.size
+            self.nz = self.levels.size
+            mlons, mlats = np.meshgrid( self.lons, self.lats )
+            self.mlons = mlons
+            self.mlats = mlats
+
+        print( f'Lambert = {self.lambert}, nx = {self.nx}, ny={self.ny}, nmonths={self.months.size}, ' + \
+                    f'nlevels={self.levels.size}, nhours={self.hours.size}' )
+
+        #  Get projection. 
+
+        if self.lambert: 
+            v = d.variables['Lambert_Conformal']
+            atts = { attname: v.getncattr(attname) for attname in v.ncattrs() }
+            print( 'Projection:' )
+            print( '\n'.join( [ f'  {key}: {value}' for key, value in atts.items() ] ) )
+
+            #  Map using Lambert Conformal. 
+
+            self.projection = ccrs.LambertConformal( 
+                    central_longitude=atts['longitude_of_central_meridian'], 
+                    central_latitude=atts['latitude_of_projection_origin'], 
+                    false_easting=atts['false_easting'], 
+                    false_northing=atts['false_northing'], 
+                    standard_parallels=atts['standard_parallel'] 
+                    ) 
+
+        d.close()
+
+        #  Define the mask. 
+
+        rs = [ r for r in regions if r['name']==region ]
+        if len( rs ) == 1: 
+            r = rs[0]
+        else: 
+            print( f'Region "{region}" is unavailable' )
+            return None
+
+        lonrange, latrange = r['longituderange'] * 1, r['latituderange'] * 1
+        lonrange[ lonrange<0 ] += 360
+        self.bbox = { 'lonrange': lonrange, 'latrange': latrange }
+
+        if lonrange.size == 1 and latrange.size == 1: 
+
+            #  Select nearest gridpoint. 
+
+            mlons = np.deg2rad( self.mlons )
+            mlats = np.deg2rad( self.mlats )
+            lon = np.deg2rad( lonrange[0] )
+            lat = np.deg2rad( latrange[0] )
+
+            mp = np.array( [ np.cos(mlons) * np.cos(mlats), np.sin(mlons) * np.cos(mlats), np.sin(mlats) ] )
+            p = np.array( [ np.cos(lon) * np.cos(lat), np.sin(lon) * np.cos(lat), np.sin(lat) ] )
+            pmp = np.matmul( mp.T, p ).T
+            ii = np.argmax( pmp ).squeeze()
+            ilat, ilon = int( ii / mlons.shape[1] ), ( ii % mlons.shape[1] )
+            self.mask = np.zeros( mlons.shape, np.int8 )
+            self.mask[ilat,ilon] = 1
+
+        else: 
+
+            dlons0 = self.mlons - self.bbox['lonrange'][0]
+            dlons1 = self.mlons - self.bbox['lonrange'][1]
+
+            dlats0 = self.mlats - self.bbox['latrange'][0]
+            dlats1 = self.mlats - self.bbox['latrange'][1]
+
+            if self.bbox['lonrange'][1] > self.bbox['lonrange'][0]: 
+                self.mask = np.logical_and( np.logical_and( dlons0 >= 0.0, dlons1 <= 0.0 ), \
+                        np.logical_and( dlats0 >= 0.0, dlats1 <= 0.0 ) ).astype( np.int8 )
+            else: 
+                self.mask = np.logical_and( np.logical_or( dlons0 >= 0.0, dlons1 <= 0.0 ), \
+                        np.logical_and( dlats0 >= 0.0, dlats1 <= 0.0 ) ).astype( np.int8 )
+
+            print( 'LLJ bounding box:' )
+            print( "  lonrange = " + ", ".join( [ f'{float(lon):.1f}' for lon in self.bbox['lonrange'] ] ) )
+            print( "  latrange = " + ", ".join( [ f'{float(lat):.1f}' for lat in self.bbox['latrange'] ] ) )
+
+        return
+
+    def __call__( self, axes_limits, uwnd, vwnd, labels=True, bbox=True ): 
+
+        ax = fig.add_axes( axes_limits, projection=self.projection )
+        ax.set_aspect('auto')
+
+        #  Map properties. 
+
+        ax.set_extent([-130,-70,23,50], ccrs.PlateCarree())
+        ax.add_feature(OCEAN.with_scale('10m'),lw=0.5,facecolor='lightblue',alpha=0.4)
+        ax.add_feature(STATES.with_scale('10m'),lw=0.5,facecolor='#FFCC00',alpha=0.4)
+        ax.add_feature(STATES.with_scale('10m'),lw=0.5,edgecolor='black')
+        gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=labels, x_inline=False, y_inline=False, linewidth=0.33, color='k',alpha=0.5)
+        if labels: 
+            gl.right_labels = gl.top_labels = False
+            gl.ylocator = ticker.FixedLocator( np.arange( 20, 51, 5 ) )
+            gl.xlocator = ticker.FixedLocator( np.arange( -130, -70+1, 10 ) )
+
+        #  Draw vector field. 
+
+        ax.quiver( self.mlons[::self.dy,::self.dx], self.mlats[::self.dy,::self.dx], 
+               uwnd[::self.dy,::self.dx], vwnd[::self.dy,::self.dx], 
+               scale=self.scale, transform=ccrs.PlateCarree(), color="#DD0000" )
+
+        #  Reference wind speed barb. 
+
+        refspeed = 10.0
+        print( f'Reference wind barb = {refspeed:4.1f} m/s' )
+
+        refspeed = 10.0
+        rlons = np.zeros( (1,1), np.float32 ) - 122.0
+        rlats = np.zeros( (1,1), np.float32 ) + 27.0
+        ru = np.zeros( (1,1), np.float32 )
+        rv = np.zeros( (1,1), np.float32 ) + refspeed
+
+        ax.quiver( rlons, rlats, ru, rv, scale=self.scale, transform=ccrs.PlateCarree(), color="#000000", lw=2.0 )
+
+        #  Draw region bounding box. 
+
+        if bbox: 
+            xb, yb = self.bbox['lonrange'], self.bbox['latrange']
+            x = [ xb[0], xb[1], xb[1], xb[0], xb[0] ]
+            y = [ yb[0], yb[0], yb[1], yb[1], yb[0] ]
+            ax.plot( x, y, transform=ccrs.PlateCarree(), lw=1.2, color='#0000FF' )
+
+        return ax
 
