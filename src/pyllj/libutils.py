@@ -280,7 +280,7 @@ class LambertConformalInterpolator():
 
         #  Generate x, y coordinates. 
 
-        x, y = self.p.lonlat2xy( self.lons, self.lats )
+        x, y = self.p.lonlat2xy( self.mlons, self.mlats )
 
         #  Determine whether x is the first or second dimension of lons, lats. 
 
@@ -330,9 +330,9 @@ class LambertConformalInterpolator():
         #  Interpolation indices and fractions. 
 
         self.ix = np.int16( ( x - self.xmin ) / self.dx )
-        self.tx = ( x - self.xmin - ix * self.dx ) / self.dx
+        self.tx = ( x - self.xmin - self.ix * self.dx ) / self.dx
         self.iy = np.int16( ( y - self.ymin ) / self.dy )
-        self.ty = ( y - self.ymin - iy * self.dy ) / self.dy
+        self.ty = ( y - self.ymin - self.iy * self.dy ) / self.dy
 
         #  Done. 
 
