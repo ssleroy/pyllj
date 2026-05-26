@@ -167,7 +167,7 @@ def plot_watervaporflux( reanalyses:list=["narr","merra2","era5"], layer:str="pb
             ax.quiver( [-57.5], [20], [0], [f*wvscale], 
                     transform=ccrs.PlateCarree(), scale=wvscale, scale_units="xy", 
                     clip_on=False )
-            ax.text( -58, 28, f'{f*wvscale:.1f} kg/m/s', rotation="vertical", ha="left", clip_on=False )
+            ax.text( -58, 28, f'{int(f*wvscale):d} kg/m/s', rotation="vertical", ha="left", clip_on=False )
 
     print( f'Saving to {outputfile}.' )
     fig.savefig( outputfile )

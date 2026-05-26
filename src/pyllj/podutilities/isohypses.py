@@ -260,7 +260,7 @@ def windbarbs_ax( fig, pos, wind_barbs, imonths, xticks=True, yticks=True,
         ax.set_xticklabels( [] )
 
     ax.set_ylim( 0, 3 )
-    yts = np.arange(0,3.001,1)
+    yts = np.arange(0,4,1,dtype=np.int32)
     ax.set_yticks( yts )
     ax.yaxis.set_minor_locator( ticker.MultipleLocator(0.2) )
     if yticks: 

@@ -104,7 +104,7 @@ def plot_boundaryflux( reanalyses:{tuple,list}=["narr","merra2","era5"], layer:s
 
     units = 3600 / 1.0e12
     print( 'Units are Gtons per hour' )
-    cmap = plt.get_cmap( "gist_ncar" )
+    cmap = plt.get_cmap( "turbo" )
     nrecs = len( data )
     colors = [ cmap( (i+0.5)/nrecs ) for i in range(nrecs) ]
 

@@ -190,7 +190,7 @@ def plot_speed_height_distributions( region:str,
                 + np.array( [ xmargin/xsize, 0, 0, 0 ] )
 
     cbar = fig.add_axes( pos )
-    fig.colorbar( cax, cbar, orientation="horizontal", ticks=clevels, label='Probability [ ( km m/s )$^{-1}$ ]' )
+    fig.colorbar( cax, cbar, orientation="horizontal", ticks=clevels, label='Probability [(km m/s)$^{-1}$]' )
 
     #  Done. 
 

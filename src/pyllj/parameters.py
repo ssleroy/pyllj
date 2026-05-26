@@ -99,7 +99,7 @@ def plot_regions( extent=[-130,-60,20,55], projection=ccrs.PlateCarree(), legend
 
     #  Color scheme. 
 
-    cmap = plt.get_cmap( "brg" )
+    cmap = plt.get_cmap( "gist_rainbow" )
 
     #  Count regions and boundaries. 
 
