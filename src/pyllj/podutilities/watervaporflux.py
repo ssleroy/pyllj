@@ -51,16 +51,18 @@ def def_ax( fig, bounds=[0.05,0.05,0.90,0.90], fontsize=None ):
     ax = fig.add_axes( bounds, projection=ccrs.PlateCarree() )
     ax.set_extent([-135,-60,15,55], ccrs.PlateCarree())
     ax.add_feature(cfeature.OCEAN,facecolor='paleturquoise',alpha=0.4)
+    ax.add_feature(cfeature.STATES,edgecolor='#202020',lw=0.1,alpha=0.4)
     ax.coastlines(lw=0.5)
-    gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, 
+    if False: 
+        gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, 
                       x_inline=False, y_inline=False, linewidth=0.33, 
                       color='k', alpha=0.5 )
-    gl.right_labels = gl.top_labels = False
-    gl.ylocator = ticker.FixedLocator( np.arange(20,60,10) )
-    gl.xlocator = ticker.FixedLocator( np.arange(-120,-59,15) )
-    if fontsize is not None: 
-        gl.xlabel_style = {'size': fontsize }
-        gl.ylabel_style = {'size': fontsize }
+        gl.right_labels = gl.top_labels = False
+        gl.ylocator = ticker.FixedLocator( np.arange(20,60,10) )
+        gl.xlocator = ticker.FixedLocator( np.arange(-120,-59,15) )
+        if fontsize is not None: 
+            gl.xlabel_style = {'size': fontsize }
+            gl.ylabel_style = {'size': fontsize }
 
     return ax
 
@@ -167,7 +169,9 @@ def plot_watervaporflux( reanalyses:list=["narr","merra2","era5"], layer:str="pb
             ax.quiver( [-57.5], [20], [0], [f*wvscale], 
                     transform=ccrs.PlateCarree(), scale=wvscale, scale_units="xy", 
                     clip_on=False )
-            ax.text( -58, 28, f'{int(f*wvscale):d} kg/m/s', rotation="vertical", ha="left", clip_on=False )
+            ax.text( -57.5, 28, f'{int(f*wvscale):d} kg/m/s', 
+                    rotation="vertical", rotation_mode="anchor", 
+                    ha="left", va="center", clip_on=False )
 
     print( f'Saving to {outputfile}.' )
     fig.savefig( outputfile )
