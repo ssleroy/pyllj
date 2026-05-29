@@ -4,10 +4,12 @@ import os
 import glob
 import re
 import argparse
-from datetime import datetime, timedelta, timezone
 import csv
+from datetime import datetime, timedelta, timezone
+from tqdm import tqdm
 from netCDF4 import Dataset
 import numpy as np
+from scipy.interpolate import interp1d
 from ..parameters import default_dataroot, sondes
 from ..libutils import RetClass
 
@@ -33,37 +35,59 @@ def compute_isohypses_climatology( sonde:str, dataroot:str=default_dataroot,
     rec = recs[0]
 
     inputpath = os.path.join( dataroot, '{:}_snd'.format( rec['station_id'] ), "downloads" )
-    inputfiles = sorted( glob.glob( inputpath, "*.csv" ) )
+    inputfiles = sorted( glob.glob( f"{inputpath}/*.csv" ) )
 
     #  Loop over input files. 
 
     olevels = np.arange( 100.0, 3000.1, 100.0, np.float32 )
 
     data = []
-    for inputfile in inputfiles: 
+    iterator = tqdm( inputfiles, desc="reading sonde data" )
+
+    for inputfile in iterator: 
         file = os.path.basename( inputfile )
         m = re.search( r'(\d{8}_\d{4}).csv$', file )
         dtime = datetime.strptime( m.group(1), '%Y%m%d_%H%M' )
         with open( inputfile, 'r' ) as f: 
-            drecs = csv.DictReader( f, delimiter="," )
-            heights = np.array( [ float( drec['hght'] ) for drec in drecs ] )
-            directions = np.array( [ float( drec['drct'] ) for drec in drecs ] )
-            speeds = np.array( [ float( drec['sped'] ) for drec in drecs ] )
+            reader = csv.DictReader( f, delimiter="," )
+            heights, directions, speeds = [], [], []
+            for row in reader: 
+                heights.append( row['hght'] )
+                directions.append( row['drct'] )
+                speeds.append( row['sped'] )
+
+            #  Eliminate null values. 
+
+            eheights, edirections, espeeds = [], [], []
+            for height, direction, speed in zip( heights, directions, speeds ): 
+                if height=="" or direction=="" or speed=="": 
+                    continue
+                else: 
+                    eheights.append( np.float32( height ) )
+                    edirections.append( np.float32( direction ) )
+                    espeeds.append( np.float32( speed ) )
+
+            heights = np.array( eheights )
+            directions = np.array( edirections )
+            speeds = np.array( espeeds )
             
             #  Convert wind speed and direction to u, v, heights to delta-heights. 
 
             alpha = np.deg2rad( directions )
             u = speeds * np.sin( alpha )
             v = speeds * np.cos( alpha )
-            dheights = heights - rec['surface_height']
+            dheights = heights - rec['height']
 
             #  Interpolate onto delta-isohypsic grid. 
 
             mask = np.logical_or( olevels < dheights.min(), olevels > dheights.max() )
-            intp = interp1d( dheights, u )
-            ui = np.ma.masked_where( mask, intp( olevels ) )
-            intp = interp1d( dheights, v )
-            vi = np.ma.masked_where( mask, intp( olevels ) )
+            try: 
+                intp = interp1d( dheights, u )
+                ui = np.ma.masked_where( mask, intp( olevels ) )
+                intp = interp1d( dheights, v )
+                vi = np.ma.masked_where( mask, intp( olevels ) )
+            except: 
+                continue
 
             #  Store in data. 
 
@@ -91,26 +115,28 @@ def compute_isohypses_climatology( sonde:str, dataroot:str=default_dataroot,
         imonth = d['time'].month - 1
         ihour = np.argwhere( hours == d['time'].hour ).squeeze()
 
-        good = np.logical_not( np.get_mask( d['ui'] ) )
+        good = np.logical_not( np.ma.getmask( d['ui'] ) )
         uc[imonth,ihour,good] += d['ui'][good]
         ucn[imonth,ihour,good] += 1
 
-        good = np.logical_not( np.get_mask( d['vi'] ) )
+        good = np.logical_not( np.ma.getmask( d['vi'] ) )
         vc[imonth,ihour,good] += d['vi'][good]
         vcn[imonth,ihour,good] += 1
 
     #  Normalize and mask. 
 
+    ncutoff = 15 * ( yearrange[1] - yearrange[0] + 1 )
+
     uc /= ucn
-    uc = np.ma.masked_where( ucn < 24, ucn )
+    uc = np.ma.masked_where( ucn < ncutoff, uc )
 
     vc /= vcn
-    vc = np.ma.masked_where( vcn < 24, vcn )
+    vc = np.ma.masked_where( vcn < ncutoff, vc )
 
     #  Write to output file. 
 
-    outputpath = os.path.join( dataroot, "isohypses", outputfile )
-    os.mkdirs( os.path.dirname( outputpath ), exist_ok=True )
+    outputpath = os.path.join( dataroot, '{:}_snd'.format( rec['station_id'] ), "isohypses", outputfile )
+    os.makedirs( os.path.dirname( outputpath ), exist_ok=True )
     ret.update( comments=f'Writing to {outputpath}' )
 
     d = Dataset( outputpath, 'w', format="NETCDF4" )
@@ -166,7 +192,7 @@ def compute_isohypses_climatology( sonde:str, dataroot:str=default_dataroot,
 
     d.setncatts( { 
                   'file_type': "sonde_isohypsic_analysis_climatology", 
-                  'sonde_name': rec['name'], 
+                  'station_name': rec['name'], 
                   'station_id': rec['station_id'], 
                   'year_range': np.int32( yearrange ), 
                   'creation_time': datetime.now( tz=timezone.utc ).strftime( "%d %b %Y %H:%M:%S UTC" ), 
@@ -177,7 +203,7 @@ def compute_isohypses_climatology( sonde:str, dataroot:str=default_dataroot,
     d.variables['longitude'][:] = rec['longitude']
     d.variables['latitude'][:] = rec['latitude']
     d.variables['level'][:] = olevels
-    d.variables['month'][:] = np.arange(12,np.int32) + 1
+    d.variables['month'][:] = np.arange(12,dtype=np.int32) + 1
     d.variables['hour'][:] = hours
     d.variables['uwnd'][:] = uc
     d.variables['vwnd'][:] = vc
