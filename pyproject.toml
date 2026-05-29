@@ -60,6 +60,8 @@ compute_merra2_isohypses = "pyllj.merra2.compute_isohypses:main"
 compute_merra2_isohypses_climatology = "pyllj.merra2.compute_isohypses_climatology:main"
 compute_merra2_boundary_watervaporflux = "pyllj.merra2.boundary_watervaporflux:main"
 
+compute_sonde_isohypses_climatology = "pyllj.sonde.compute_isohypses_climatology:main"
+
 compute_diagnostics_climatology = "pyllj.podutilities.compute_diagnostics_climatology:main"
 compute_diagnostics = "pyllj.podutilities.compute_diagnostics:main"
 compute_watervaporflux = "pyllj.podutilities.compute_watervaporflux:main"

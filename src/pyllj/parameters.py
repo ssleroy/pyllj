@@ -46,9 +46,16 @@ zenodoversion = "20142370"      # Version 3
 
 regions = [ 
         # { 'name': "north-america", 'longituderange': np.array( [ -135.0, -60.0 ] ), 'latituderange': np.array( [ 15.0, 55.0 ] ) }, 
-        { 'name': "sgp", 'longituderange': np.array( [ -97.480 ] ), 'latituderange': np.array( [ 36.620 ] ) }, 
-        { 'name': "great-plains", 'longituderange': np.array( [ -102.0, -92.0 ] ), 'latituderange': np.array( [ 30.0, 47.0 ] ) }, 
-        { 'name': "southern-plains", 'longituderange': np.array( [ -100.5, -94.5 ] ), 'latituderange': np.array( [ 34.6, 38.6 ] ) } ]
+        { 'name': "great-plains", 
+                'longituderange': np.array( [ -102.0, -92.0 ] ), 'latituderange': np.array( [ 30.0, 47.0 ] ) }, 
+        { 'name': "southern-plains", 
+                'longituderange': np.array( [ -100.5, -94.5 ] ), 'latituderange': np.array( [ 34.6, 38.6 ] ) } ]
+
+sondes = [ 
+          { 'name': "kfwd", 'station_id': "72249", 'longitude': -97.297, 'latitude': 32.835, 'height': 171.0 }, 
+          { 'name': "koun", 'station_id': "72357", 'longitude': -97.440, 'latitude': 35.180, 'height': 345.0 }, 
+          { 'name': "sgp", 'station_id': "74646", 'longitude': -97.480, 'latitude': 36.620, 'height': 317.0 } 
+        ]
 
 #  Boundaries used for evaluating cross-boundary column water fluxes. 
 
@@ -103,33 +110,47 @@ def plot_regions( extent=[-130,-60,20,55], projection=ccrs.PlateCarree(), legend
 
     #  Count regions and boundaries. 
 
-    nregions = len( regions )
-    nboundaries = len( boundaries )
-    ncurves = nregions + nboundaries
+    selected_sondes = [ rec for rec in sondes if rec['name'] in [ "sgp" ] ]
+    nsondes = len( selected_sondes )
+
+    selected_regions = regions
+    nregions = len( selected_regions )
+
+    selected_boundaries = boundaries
+    nboundaries = len( selected_boundaries )
+
+    selected_boundaries = boundaries
+    nboundaries = len( selected_boundaries )
+
+    ncurves = nsondes + nregions + nboundaries
 
     for icurve in range(ncurves): 
         color = cmap( (icurve+0.5) / ncurves )
 
-        if icurve < nregions: 
+        if icurve < nsondes: 
 
-            #  Regions. 
+            #  Sondes. 
 
-            iregion = icurve
-            region = regions[iregion]
+            isonde = icurve
+            sonde = selected_sondes[isonde]
+            lon, lat = sonde['longitude'], sonde['latitude']
+            ax.scatter( longitude, latitude, color=color, s=1.5, label=region['name'] )
+
+        elif icurve < nsondes + nregions: 
+
+            iregion = icurve - nsondes
+            region = selected_regions[iregion]
             lonrange, latrange = region['longituderange'], region['latituderange']
-            if lonrange.size == 2: 
-                lons = np.array( [ lonrange[0], lonrange[1], lonrange[1], lonrange[0], lonrange[0] ] )
-                lats = np.array( [ latrange[0], latrange[0], latrange[1], latrange[1], latrange[0] ] )
-                ax.plot( lons, lats, color=color, lw=1.5, label=region['name'] )
-            elif lonrange.size == 1: 
-                ax.scatter( lonrange, latrange, color=color, s=1.5, label=region['name'] )
+            lons = [ lonrange[0], lonrange[1], lonrange[1], lonrange[0], lonrange[0] ]
+            lats = [ latrange[0], latrange[0], latrange[1], latrange[1], latrange[0] ]
+            ax.plot( lons, lats, color=color, lw=1.5, label=region['name'] )
 
         else: 
 
             #  Boundaries. 
 
-            iboundary = icurve - nregions
-            boundary = boundaries[iboundary]
+            iboundary = icurve - nsondes - nregions
+            boundary = selected_boundaries[iboundary]
             lons = boundary['lons']
             lats = boundary['lats']
             ax.plot( lons, lats, color=color, lw=1.5, label=boundary['name'] )
