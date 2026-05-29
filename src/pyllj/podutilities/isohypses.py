@@ -150,14 +150,14 @@ class WindBarbs():
 #  Compute a wind-barb analysis. It essentially averages over a region. 
 ################################################################################
 
-def compute_windbarbs( model:str, modellabel:str=None, region:str="southern-plains" ): 
+def compute_windbarbs( source:str, modellabel:str=None, region:str="southern-plains" ): 
     """Do the regional averaging for the computation of wind barbs in the delta-
     ishypsic analysis.
 
     Arguments
     =========
-    model           The name of a reanalysis ("narr","merra2","era5") or a 
-                    path to the root directory of model output.
+    source          The name of a reanalysis ("narr","merra2","era5"), a 
+                    sonde, or a path to the root directory of model output.
 
     modellabel      The official label to be associated with the instance. 
                     By default, it is the uppercase reanalysis name or the 
@@ -168,7 +168,7 @@ def compute_windbarbs( model:str, modellabel:str=None, region:str="southern-plai
 
     #  Create a WindField instance. 
 
-    analysisfile = get_metricpath( "isohypses", model )
+    analysisfile = get_metricpath( "isohypses", source )
 
     if analysisfile is None: 
 
@@ -197,15 +197,20 @@ def compute_windbarbs( model:str, modellabel:str=None, region:str="southern-plai
 
     d = Dataset( analysisfile, 'r' )
     hours = d.variables['hour'][:]
-    months = np.arange(12) + 1
+    months = d.variables['month'][:]
     ncp = hours.size
     uwnd = np.ma.zeros( ( 12, ncp, WF.nz ), np.float32 )
     vwnd = np.ma.zeros( ( 12, ncp, WF.nz ), np.float32 )
 
-    for imonth in range(12): 
-        for ihour in range(ncp): 
-            uwnd[imonth,ihour,:] = ( d.variables['uwnd'][imonth,ihour,:,:,:] * WF.mask ).reshape( (WF.nz,WF.nx*WF.ny) ).sum(axis=1) / WF.mask.sum()
-            vwnd[imonth,ihour,:] = ( d.variables['vwnd'][imonth,ihour,:,:,:] * WF.mask ).reshape( (WF.nz,WF.nx*WF.ny) ).sum(axis=1) / WF.mask.sum()
+    if WF.mask is None: 
+        uwnd = d.variables['uwnd'][:]
+        vwnd = d.variables['vwnd'][:]
+
+    else: 
+        for imonth in range(12): 
+            for ihour in range(ncp): 
+                uwnd[imonth,ihour,:] = ( d.variables['uwnd'][imonth,ihour,:,:,:] * WF.mask ).reshape( (WF.nz,WF.nx*WF.ny) ).sum(axis=1) / WF.mask.sum()
+                vwnd[imonth,ihour,:] = ( d.variables['vwnd'][imonth,ihour,:,:,:] * WF.mask ).reshape( (WF.nz,WF.nx*WF.ny) ).sum(axis=1) / WF.mask.sum()
 
     d.close()
 

@@ -105,7 +105,7 @@ def configure_cache( cachedir:str ):
 
 #  Get paths to metric data files. 
 
-def get_metricpath( metric:str, reanalysis:str ): 
+def get_metricpath( metric:str, source:str ): 
     """Get the absolute path to a data file to be used as the reference for 
     a POD metric. 
 
@@ -115,7 +115,7 @@ def get_metricpath( metric:str, reanalysis:str ):
                 "boundaryflux", or "isohypses". 
 
     reanalysis  A string naming the reanalysis to be used as reference: "narr", 
-                "merra2", "era5". """
+                "merra2", "era5". Sonde names are also accepted."""
 
     valid_metrics = [ "diagnostics", "watervaporflux", "boundaryflux", "isohypses" ]
     if metric not in valid_metrics: 
@@ -124,9 +124,12 @@ def get_metricpath( metric:str, reanalysis:str ):
         return None
 
     valid_reanalyses = [ "narr", "merra2", "era5" ]
-    if reanalysis not in valid_reanalyses: 
-        print( 'Reanalysis must be one of ' + ', '.join( 
-                [ f'"{vreanalysis}"' for vreanalysis in valid_reanalyses ] ) )
+    valid_sondes = [ "sgp" ]
+
+    if source not in valid_reanalyses and source not in valid_sondes: 
+        print( 'Source must be one of ' + ', '.join( 
+                [ f'"{vreanalysis}"' for vreanalysis in valid_reanalyses ] + \
+                        [ f'"{vsonde}"' for vsonde in valid_sondes ] ) )
         return None
 
     rc = {}
@@ -145,7 +148,7 @@ def get_metricpath( metric:str, reanalysis:str ):
     else:
         m = metric
 
-    file = f'{reanalysis}_{m}.nc' 
+    file = f'{source}_{m}.nc' 
     local_path = os.path.join( cachedir, file )
 
     #  Check if data file already resides on local file system. 
@@ -385,7 +388,7 @@ class WindField():
             self.nz = self.levels.size
             self.mlons = self.lons
             self.mlats = self.lats
-        else: 
+        elif self.lons.size > 1: 
             self.lambert = False
             self.nx = self.lons.size
             self.ny = self.lats.size
@@ -393,6 +396,13 @@ class WindField():
             mlons, mlats = np.meshgrid( self.lons, self.lats )
             self.mlons = mlons
             self.mlats = mlats
+        else: 
+            self.lambert = False
+            self.nx = self.lons.size
+            self.ny = self.lats.size
+            self.nz = self.levels.size
+            self.mlons = self.lons.squeeze()
+            self.mlats = self.lats.squeeze() 
 
         print( f'Lambert = {self.lambert}, nx = {self.nx}, ny={self.ny}, nmonths={self.months.size}, ' + \
                     f'nlevels={self.levels.size}, nhours={self.hours.size}' )
@@ -419,52 +429,58 @@ class WindField():
 
         #  Define the mask. 
 
-        rs = [ r for r in regions if r['name']==region ]
-        if len( rs ) == 1: 
-            r = rs[0]
-        else: 
-            print( f'Region "{region}" is unavailable' )
-            return None
+        if self.nx != 1 or self.ny != 1: 
 
-        lonrange, latrange = r['longituderange'] * 1, r['latituderange'] * 1
-        lonrange[ lonrange<0 ] += 360
-        self.bbox = { 'lonrange': lonrange, 'latrange': latrange }
-
-        if lonrange.size == 1 and latrange.size == 1: 
-
-            #  Select nearest gridpoint. 
-
-            mlons = np.deg2rad( self.mlons )
-            mlats = np.deg2rad( self.mlats )
-            lon = np.deg2rad( lonrange[0] )
-            lat = np.deg2rad( latrange[0] )
-
-            mp = np.array( [ np.cos(mlons) * np.cos(mlats), np.sin(mlons) * np.cos(mlats), np.sin(mlats) ] )
-            p = np.array( [ np.cos(lon) * np.cos(lat), np.sin(lon) * np.cos(lat), np.sin(lat) ] )
-            pmp = np.matmul( mp.T, p ).T
-            ii = np.argmax( pmp ).squeeze()
-            ilat, ilon = int( ii / mlons.shape[1] ), ( ii % mlons.shape[1] )
-            self.mask = np.zeros( mlons.shape, np.int8 )
-            self.mask[ilat,ilon] = 1
-
-        else: 
-
-            dlons0 = self.mlons - self.bbox['lonrange'][0]
-            dlons1 = self.mlons - self.bbox['lonrange'][1]
-
-            dlats0 = self.mlats - self.bbox['latrange'][0]
-            dlats1 = self.mlats - self.bbox['latrange'][1]
-
-            if self.bbox['lonrange'][1] > self.bbox['lonrange'][0]: 
-                self.mask = np.logical_and( np.logical_and( dlons0 >= 0.0, dlons1 <= 0.0 ), \
-                        np.logical_and( dlats0 >= 0.0, dlats1 <= 0.0 ) ).astype( np.int8 )
+            rs = [ r for r in regions if r['name']==region ]
+            if len( rs ) == 1: 
+                r = rs[0]
             else: 
-                self.mask = np.logical_and( np.logical_or( dlons0 >= 0.0, dlons1 <= 0.0 ), \
-                        np.logical_and( dlats0 >= 0.0, dlats1 <= 0.0 ) ).astype( np.int8 )
+                print( f'Region "{region}" is unavailable' )
+                return None
 
-            print( 'LLJ bounding box:' )
-            print( "  lonrange = " + ", ".join( [ f'{float(lon):.1f}' for lon in self.bbox['lonrange'] ] ) )
-            print( "  latrange = " + ", ".join( [ f'{float(lat):.1f}' for lat in self.bbox['latrange'] ] ) )
+            lonrange, latrange = r['longituderange'] * 1, r['latituderange'] * 1
+            lonrange[ lonrange<0 ] += 360
+            self.bbox = { 'lonrange': lonrange, 'latrange': latrange }
+
+            if lonrange.size == 1 and latrange.size == 1: 
+
+                #  Select nearest gridpoint. 
+
+                mlons = np.deg2rad( self.mlons )
+                mlats = np.deg2rad( self.mlats )
+                lon = np.deg2rad( lonrange[0] )
+                lat = np.deg2rad( latrange[0] )
+
+                mp = np.array( [ np.cos(mlons) * np.cos(mlats), np.sin(mlons) * np.cos(mlats), np.sin(mlats) ] )
+                p = np.array( [ np.cos(lon) * np.cos(lat), np.sin(lon) * np.cos(lat), np.sin(lat) ] )
+                pmp = np.matmul( mp.T, p ).T
+                ii = np.argmax( pmp ).squeeze()
+                ilat, ilon = int( ii / mlons.shape[1] ), ( ii % mlons.shape[1] )
+                self.mask = np.zeros( mlons.shape, np.int8 )
+                self.mask[ilat,ilon] = 1
+
+            else: 
+
+                dlons0 = self.mlons - self.bbox['lonrange'][0]
+                dlons1 = self.mlons - self.bbox['lonrange'][1]
+
+                dlats0 = self.mlats - self.bbox['latrange'][0]
+                dlats1 = self.mlats - self.bbox['latrange'][1]
+
+                if self.bbox['lonrange'][1] > self.bbox['lonrange'][0]: 
+                    self.mask = np.logical_and( np.logical_and( dlons0 >= 0.0, dlons1 <= 0.0 ), \
+                            np.logical_and( dlats0 >= 0.0, dlats1 <= 0.0 ) ).astype( np.int8 )
+                else: 
+                    self.mask = np.logical_and( np.logical_or( dlons0 >= 0.0, dlons1 <= 0.0 ), \
+                            np.logical_and( dlats0 >= 0.0, dlats1 <= 0.0 ) ).astype( np.int8 )
+
+                print( 'LLJ bounding box:' )
+                print( "  lonrange = " + ", ".join( [ f'{float(lon):.1f}' for lon in self.bbox['lonrange'] ] ) )
+                print( "  latrange = " + ", ".join( [ f'{float(lat):.1f}' for lat in self.bbox['latrange'] ] ) )
+
+        else: 
+
+            self.mask = None
 
         return
 
