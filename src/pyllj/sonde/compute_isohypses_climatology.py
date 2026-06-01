@@ -74,8 +74,8 @@ def compute_isohypses_climatology( sonde:str, dataroot:str=default_dataroot,
             #  Convert wind speed and direction to u, v, heights to delta-heights. 
 
             alpha = np.deg2rad( directions )
-            u = speeds * np.sin( alpha )
-            v = speeds * np.cos( alpha )
+            u = -speeds * np.sin( alpha )
+            v = -speeds * np.cos( alpha )
             dheights = heights - rec['height']
 
             #  Interpolate onto delta-isohypsic grid. 
