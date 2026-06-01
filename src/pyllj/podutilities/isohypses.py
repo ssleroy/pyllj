@@ -30,17 +30,18 @@ warnings.filterwarnings('ignore')
 ################################################################################
 
 class WindBarbs(): 
-    """Compute the wind barbs for one of the models. A dictionary is returned containing 
-    the related WindField instance for the model and the lengths of the u and v wind 
-    components decomposed by month, hour, and height level above the surface."""
+    """Compute the wind barbs for one of the models (or sondes). A dictionary is 
+    returned containing the related WindField instance for the model and the 
+    lengths of the u and v wind components decomposed by month, hour, and height 
+    level above the surface."""
 
-    def __init__( self, model:str=None, modelname:str=None, uwnd=None, vwnd=None, 
+    def __init__( self, source:str=None, sourcename:str=None, uwnd=None, vwnd=None, 
                  hours=None, months=None, levels=None ): 
 
         """Create an instance of WindBarbs."""
 
-        self.model = model
-        self.modelname = modelname
+        self.source = source
+        self.sourcename = sourcename
         self.uwnd = uwnd
         self.vwnd = vwnd
         self.hours = hours
@@ -85,9 +86,9 @@ class WindBarbs():
         y = ( other.vwnd[imonths2,:,:] )[:,ihours2,:]
         vwnd = x + y
 
-        modelname = self.modelname + r'$+$' + other.modelname
+        sourcename = self.sourcename + r'$+$' + other.sourcename
 
-        ret = WindBarbs( modelname=modelname, uwnd=uwnd, vwnd=vwnd, hours=hours, months=months, levels=self.levels )
+        ret = WindBarbs( sourcename=sourcename, uwnd=uwnd, vwnd=vwnd, hours=hours, months=months, levels=self.levels )
         return ret
 
     def __sub__( self, other ): 
@@ -126,31 +127,32 @@ class WindBarbs():
         y = ( other.vwnd[imonths2,:,:] )[:,ihours2,:]
         vwnd = x - y
 
-        modelname = self.modelname + r'$-$' + other.modelname
+        sourcename = self.sourcename + r'$-$' + other.sourcename
 
-        ret = WindBarbs( modelname=modelname, uwnd=uwnd, vwnd=vwnd, hours=hours, months=months, levels=self.levels )
+        ret = WindBarbs( sourcename=sourcename, uwnd=uwnd, vwnd=vwnd, hours=hours, months=months, levels=self.levels )
         return ret
 
     def __mul__( self, f ): 
 
-        ret = WindBarbs( modelname=self.modelname, 
+        ret = WindBarbs( sourcename=self.sourcename, 
                         uwnd=self.uwnd*f, vwnd=self.vwnd*f, 
                         hours=self.hours, months=self.months, levels=self.levels )
         return ret
 
     def __div__( self, f ): 
 
-        ret = WindBarbs( modelname=self.modelname, 
+        ret = WindBarbs( sourcename=self.sourcename, 
                         uwnd=self.uwnd/f, vwnd=self.vwnd/f, 
                         hours=self.hours, months=self.months, levels=self.levels )
         return ret
 
 
 ################################################################################
-#  Compute a wind-barb analysis. It essentially averages over a region. 
+#  Compute a wind-barb analysis. It essentially averages over a region or 
+#  selects a sonde location. 
 ################################################################################
 
-def compute_windbarbs( source:str, modellabel:str=None, region:str="southern-plains" ): 
+def compute_windbarbs( source:str, sourcelabel:str=None, region:str=None, sonde:str=None ): 
     """Do the regional averaging for the computation of wind barbs in the delta-
     ishypsic analysis.
 
@@ -159,12 +161,21 @@ def compute_windbarbs( source:str, modellabel:str=None, region:str="southern-pla
     source          The name of a reanalysis ("narr","merra2","era5"), a 
                     sonde, or a path to the root directory of model output.
 
-    modellabel      The official label to be associated with the instance. 
+    sourcelabel     The official label to be associated with the instance. 
                     By default, it is the uppercase reanalysis name or the 
                     lowest level directory in the modelroot path. 
 
     region          The name of the region over which to average the delta-
-                    isohypsic analysis."""
+                    isohypsic analysis. You cannot select both a region and 
+                    a sonde. 
+
+    sonde           The name of the sonde at which to select a single profile 
+                    of isohypsic analysis. YOu cannot select botha region 
+                    and a sonde."""
+
+    if region is not None and sonde is not None: 
+        print( 'compute_windbarbs: cannot interpolate at a sonde site and average over an area' )
+        return None
 
     #  Create a WindField instance. 
 
@@ -172,26 +183,26 @@ def compute_windbarbs( source:str, modellabel:str=None, region:str="southern-pla
 
     if analysisfile is None: 
 
-        #  Atmospheric model output. 
-        analysisfile = os.path.join( model, "isohypses", "isohypses.nc" )
-        if modellabel is None: 
-            ss = model.split( "/" )
+        #  Atmospheric model/sonde output. 
+        analysisfile = os.path.join( source, "isohypses", "isohypses.nc" )
+        if sourcelabel is None: 
+            ss = source.split( "/" )
             if ss[-1] != "": 
-                modelname = ss[-1]
+                sourcename = ss[-1]
             else: 
-                modelname = ss[-2]
+                sourcename = ss[-2]
         else: 
-            modelname = modellabel
+            sourcename = sourcelabel
 
     else: 
 
         #  Reanalysis output. 
-        if modellabel is None: 
-            modelname = model.upper()
+        if sourcelabel is None: 
+            sourcename = source.upper()
         else: 
-            modelname = modellabel
+            sourcename = sourcelabel
 
-    WF = WindField( analysisfile, region=region, scale=150 )
+    WF = WindField( analysisfile, region=region, sonde=sonde, scale=150 )
 
     #  Wind barbs for region, annual cycle, diurnal cycle
 
@@ -214,7 +225,7 @@ def compute_windbarbs( source:str, modellabel:str=None, region:str="southern-pla
 
     d.close()
 
-    ret = { 'model': model, 'modelname': modelname, 'uwnd': uwnd, 'vwnd': vwnd, 
+    ret = { 'source': source, 'sourcename': sourcename, 'uwnd': uwnd, 'vwnd': vwnd, 
            'hours': hours, 'months': months, 'levels': WF.levels }
 
     return ret

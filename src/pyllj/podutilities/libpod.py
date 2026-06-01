@@ -24,7 +24,7 @@ from time import time
 from scipy.interpolate import interp1d, CubicHermiteSpline
 from ..libutils import RetClass 
 from ..parameters import Rearth, Rideal, gravity, muvap, mudry, default_dataroot, \
-        aws_region, bucket, zenodoversion, regions, boundaries
+        aws_region, bucket, zenodoversion, regions, sondes, boundaries
 import matplotlib.pyplot as plt
 from matplotlib import ticker
 import cartopy.crs as ccrs
@@ -352,12 +352,17 @@ class ModelOutput():
 
 class WindField(): 
 
-    def __init__( self, analysisfile, dx=6, dy=6, region:str="great-plains", scale=300.0 ): 
+    def __init__( self, analysisfile, dx=6, dy=6, region:str=None, sonde:str=None, scale=300.0 ): 
+
+        if region is not None and sonde is not None: 
+            print( 'WindField: Cannot interpolate at a sonde site and define a region mask.' )
+            return None 
 
         self.dx = dx
         self.dy = dy
         self.scale = scale
         self.region = region
+        self.sonde = sonde
 
         print( f'Reading coordinate metadata from {analysisfile}' )
         d = Dataset( analysisfile, 'r' )
@@ -427,29 +432,52 @@ class WindField():
 
         d.close()
 
-        #  Define the mask. 
+        #  Define mask for a desired region, designated as an optional argument. If the input 
+        #  field is nothing but a single point, then no mask is computed. 
 
-        if self.nx != 1 or self.ny != 1: 
+        if self.nx == 1 and self.ny == 1 or ( region is None and sonde is None ): 
 
-            rs = [ r for r in regions if r['name']==region ]
-            if len( rs ) == 1: 
-                r = rs[0]
-            else: 
-                print( f'Region "{region}" is unavailable' )
-                return None
+            self.mask = None
 
-            lonrange, latrange = r['longituderange'] * 1, r['latituderange'] * 1
-            lonrange[ lonrange<0 ] += 360
-            self.bbox = { 'lonrange': lonrange, 'latrange': latrange }
+        else: 
 
-            if lonrange.size == 1 and latrange.size == 1: 
+            if region is not None: 
+
+                rs = [ r for r in regions if r['name']==region ]
+                if len( rs ) == 1: 
+                    r = rs[0]
+                else: 
+                    print( f'Region "{region}" is unavailable' )
+                    return None
+
+                lonrange, latrange = r['longituderange'] * 1, r['latituderange'] * 1
+                lonrange[ lonrange<0 ] += 360
+                self.bbox = { 'lonrange': lonrange, 'latrange': latrange }
+
+                ii1 = ( self.mlons >= lonrange[0] )
+                ii2 = ( self.mlons <= lonrange[1] )
+                if lonrange[1] > lonrange[0]: 
+                    iilon = np.logical_and( ii1, ii2 )
+                else: 
+                    iilon = np.logical_or( ii1, ii2 )
+                iilat = np.logical_and( self.mlats >= latrange[0], self.mlats <= latrange[1] )
+                self.mask = np.logical_and( iilon, iilat )
+
+            elif sonde is not None: 
+
+                ss = [ s for s in sondes if s['name']==sonde ]
+                if len( ss ) == 1: 
+                    s = ss[0]
+                else: 
+                    print( f'Sonde "{sonde}" is unavailable' )
+                    return None
 
                 #  Select nearest gridpoint. 
 
                 mlons = np.deg2rad( self.mlons )
                 mlats = np.deg2rad( self.mlats )
-                lon = np.deg2rad( lonrange[0] )
-                lat = np.deg2rad( latrange[0] )
+                lon = np.deg2rad( s['longitude'] )
+                lat = np.deg2rad( s['latitude'] )
 
                 mp = np.array( [ np.cos(mlons) * np.cos(mlats), np.sin(mlons) * np.cos(mlats), np.sin(mlats) ] )
                 p = np.array( [ np.cos(lon) * np.cos(lat), np.sin(lon) * np.cos(lat), np.sin(lat) ] )
@@ -458,29 +486,6 @@ class WindField():
                 ilat, ilon = int( ii / mlons.shape[1] ), ( ii % mlons.shape[1] )
                 self.mask = np.zeros( mlons.shape, np.int8 )
                 self.mask[ilat,ilon] = 1
-
-            else: 
-
-                dlons0 = self.mlons - self.bbox['lonrange'][0]
-                dlons1 = self.mlons - self.bbox['lonrange'][1]
-
-                dlats0 = self.mlats - self.bbox['latrange'][0]
-                dlats1 = self.mlats - self.bbox['latrange'][1]
-
-                if self.bbox['lonrange'][1] > self.bbox['lonrange'][0]: 
-                    self.mask = np.logical_and( np.logical_and( dlons0 >= 0.0, dlons1 <= 0.0 ), \
-                            np.logical_and( dlats0 >= 0.0, dlats1 <= 0.0 ) ).astype( np.int8 )
-                else: 
-                    self.mask = np.logical_and( np.logical_or( dlons0 >= 0.0, dlons1 <= 0.0 ), \
-                            np.logical_and( dlats0 >= 0.0, dlats1 <= 0.0 ) ).astype( np.int8 )
-
-                print( 'LLJ bounding box:' )
-                print( "  lonrange = " + ", ".join( [ f'{float(lon):.1f}' for lon in self.bbox['lonrange'] ] ) )
-                print( "  latrange = " + ", ".join( [ f'{float(lat):.1f}' for lat in self.bbox['latrange'] ] ) )
-
-        else: 
-
-            self.mask = None
 
         return
 
