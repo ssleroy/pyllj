@@ -159,7 +159,8 @@ def compute_windbarbs( source:str, sourcelabel:str=None, region:str=None, sonde:
     Arguments
     =========
     source          The name of a reanalysis ("narr","merra2","era5"), a 
-                    sonde, or a path to the root directory of model output.
+                    sonde, a path to the root directory of model output, or 
+                    a specific isohypses climatology file.
 
     sourcelabel     The official label to be associated with the instance. 
                     By default, it is the uppercase reanalysis name or the 
@@ -184,15 +185,27 @@ def compute_windbarbs( source:str, sourcelabel:str=None, region:str=None, sonde:
     if analysisfile is None: 
 
         #  Atmospheric model/sonde output. 
-        analysisfile = os.path.join( source, "isohypses", "isohypses.nc" )
-        if sourcelabel is None: 
-            ss = source.split( "/" )
-            if ss[-1] != "": 
-                sourcename = ss[-1]
+
+        if os.path.isdir( os.path.join( source, "isohypses" ) ): 
+            analysisfile = os.path.join( source, "isohypses", "isohypses.nc" )
+
+            if sourcelabel is None: 
+                ss = source.split( "/" )
+                if ss[-1] != "": 
+                    sourcename = ss[-1]
+                else: 
+                    sourcename = ss[-2]
             else: 
-                sourcename = ss[-2]
-        else: 
-            sourcename = sourcelabel
+                sourcename = sourcelabel
+
+        elif os.path.isfile( source ): 
+            analysisfile = source
+
+            if sourcelabel is None: 
+                print( 'No sourcelabel provided. setting to blank.' )
+                sourcename = ""
+            else: 
+                sourcename = sourcelabel
 
     else: 
 
