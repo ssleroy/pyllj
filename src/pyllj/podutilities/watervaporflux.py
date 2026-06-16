@@ -13,11 +13,6 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-#  Location of the data. 
-
-DATAROOT = os.getenv( "DATAROOT" )
-print( f'DATAROOT = {DATAROOT}' )
-
 #  Default plotting parameters. 
 
 axeslinewidth = 0.5 

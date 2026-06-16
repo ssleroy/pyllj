@@ -20,8 +20,10 @@ aws_region = "us-east-1"
 bucket = "aer-sleroy-llj"
 
 default_dataroot = os.getenv( "DATAROOT" )
+print( f'DATAROOT = {default_dataroot}' )
 if default_dataroot is None: 
     default_dataroot = "/fg/Data"
+print( f'The default dataroot is "{default_dataroot}". If this is undesired, be sure to set the environment variable DATAROOT.\n' )
 
 #  Pyplot settings. 
 
