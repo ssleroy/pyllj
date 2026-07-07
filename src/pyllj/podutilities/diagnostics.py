@@ -17,10 +17,9 @@ from .pyukmo import UKMOcolorMaps
 
 axeslinewidth = 0.5
 plt.rcParams.update( {
-    'font.family': "Times New Roman", 
+    'font.family': "stix", 
     'font.size': 9, 
-    'font.weight': "normal", 
-    'text.usetex': True, 
+    'font.weight': "normal",  
     'xtick.major.width': axeslinewidth, 
     'xtick.minor.width': axeslinewidth, 
     'ytick.major.width': axeslinewidth, 
@@ -111,13 +110,8 @@ def plot_summer_llj_diagnostics( reanalyses:list=["narr","merra2","era5"],
 
         plotmeta = [ 
             { 
-              # 'field': dailyeventProbability * 100, 
-              # 'label': r'Probability of Daily Occurrence [\%]', 
-              # 'levels': np.arange(0,100.1,5), 
-              # 'ticks': np.arange(0,100.1,20), 
-              # 'extend': "neither", 
               'field': eventProbability * 100, 
-              'label': r'Probability of Occurrence [\%]', 
+              'label': 'Probability of Occurrence [%]', 
               'levels': np.arange(0,30.1,1), 
               'ticks': np.arange(0,30.1,10), 
               'colorscale': 11, 
