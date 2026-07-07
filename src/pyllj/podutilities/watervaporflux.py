@@ -22,7 +22,8 @@ print( f'DATAROOT = {DATAROOT}' )
 
 axeslinewidth = 0.5 
 plt.rcParams.update( {
-  'font.family':'stix',
+  'font.family': "DejaVu Serif",
+  'mathtext.fontset': "dejavuserif",  
   'font.size': 8,  
   'font.weight': "normal", 
   'xtick.major.width': axeslinewidth, 
