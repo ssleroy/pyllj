@@ -1,0 +1,166 @@
+import os
+import re
+from netCDF4 import Dataset
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+from mpl_toolkits.basemap import Basemap, cm
+
+from IPython.core.debugger import Tracer
+
+root = '/Users/sleroy/Data/reanalyses/era-interim/'
+
+
+def figures( year, month, day, hour ):
+
+    monthstr = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split()[month-1]
+    datestring = '{0}, {1:4d}'.format( monthstr, year )
+
+#  Water vapor flux figure: 
+
+#  ERA-Interim hybrid level coefficients. 
+
+    d = Dataset( 'ERA-Interim_coordvars.nc', 'r' )
+    ai, bi = d.variables['a_interface'][:], d.variables['b_interface'][:]
+    da, db = np.abs( ai[1:] - ai[:-1] ), np.abs( bi[1:] - bi[:-1] )
+    d.close()
+    gravity = 9.80665
+
+#  Retrieve specific humidity, uwind, vwind, surface pressure. 
+
+    var, levtype = 'specifichumidity', 'ml'
+    target = root + 'monthly/{0}.erainterim.{1}.monthly.{2:4d}.nc'.format(var,levtype,year)
+    d = Dataset( target, 'r' )
+    specifichumidity = np.transpose( d.variables['q'][month-1,:,:,:].squeeze(), (1,2,0) )
+    d.close()
+
+    var, levtype = 'uwind', 'ml'
+    target = root + 'monthly/{0}.erainterim.{1}.monthly.{2:4d}.nc'.format(var,levtype,year)
+    d = Dataset( target, 'r' )
+    uwind = np.transpose( d.variables['u'][month-1,:,:,:].squeeze(), (1,2,0) )
+    d.close()
+
+    var, levtype = 'vwind', 'ml'
+    target = root + 'monthly/{0}.erainterim.{1}.monthly.{2:4d}.nc'.format(var,levtype,year)
+    d = Dataset( target, 'r' )
+    vwind = np.transpose( d.variables['v'][month-1,:,:,:].squeeze(), (1,2,0) )
+    d.close()
+
+    var, levtype = 'surfacepressure', 'sfc'
+    target = root + 'monthly/{0}.erainterim.{1}.monthly.{2:4d}.nc'.format(var,levtype,year)
+    d = Dataset( target, 'r' )
+    surfacepressure = d.variables['sp'][month-1,:,:].squeeze()
+    lons, lats = d.variables['longitude'][:], d.variables['latitude'][:]
+    d.close()
+
+    qu = ( np.inner( specifichumidity*uwind, da ) \
+        + np.inner( specifichumidity*uwind, db ) * surfacepressure ) / gravity / 10.0		# cm m/s
+    qv = ( np.inner( specifichumidity*vwind, da ) \
+        + np.inner( specifichumidity*vwind, db ) * surfacepressure ) / gravity / 10.0		# cm m/s
+    pw = ( np.inner( specifichumidity, da ) \
+        + np.inner( specifichumidity, db ) * surfacepressure ) / gravity / 10.0			# cm 
+
+#  Create map. 
+
+    fig, ax = plt.subplots( figsize=(6,4) )
+#   bm = Basemap( llcrnrlon=-130, llcrnrlat=10, urcrnrlon=-60, urcrnrlat=60, resolution='l' )
+    bm = Basemap( projection='lcc', lat_1=20, lat_2=50, lon_0=-95, lat_0=35, resolution='l', \
+        llcrnrlon=-120, llcrnrlat=15, urcrnrlon=-50, urcrnrlat=50 )
+    lons2, lats2 = np.meshgrid(lons,lats)
+    x, y = bm( lons2, lats2 )
+
+    ax.set_position( [ 0.08, 0.06, 0.80, 0.84 ] )
+    ax.set_title( 'Water Vapor Flux, '+datestring )
+    bm.drawmapboundary(linewidth=0.5)
+    bm.drawcoastlines(linewidth=0.5, color='#404040')
+    bm.drawcountries(linewidth=0.5, color='#404040')
+    bm.drawstates(linewidth=0.25, color='#808080')
+    parallels = np.arange(10,61,10)
+    bm.drawparallels( parallels, dashes=[3,2], labels=[1,0,0,0], linewidth=0.5, fontsize=10 )
+    meridians = np.arange(-130,-59,10)
+    bm.drawmeridians( meridians, dashes=[3,2], labels=[0,0,0,1], linewidth=0.5, fontsize=10 )
+
+#  Contour plot. 
+
+    clevels = np.arange(0.0,10.1,0.25)
+    cs = ax.contourf( x, y, pw, clevels, vmin=0.0, vmax=10.0, cmap='jet_r' )
+#   cs = bm.contourf( x, y, pw, vmin=0.0, vmax=12.0, cmap='nipy_spectral' )
+    cb = bm.colorbar( cs, location='right', label='Precipitable Water [cm]', pad="5%" )
+    tick_locator = matplotlib.ticker.MaxNLocator(nbins=10)
+    cb.locator = tick_locator
+    cb.update_ticks()
+
+#  Fluxes. 
+
+    qur, qvr = bm.rotate_vector( qu, qv, lons2, lats2 )
+    bm.quiver( x[::3,::3], y[::3,::3], qur[::3,::3], qvr[::3,::3], linewidth=0.8, scale=1000.0 )
+
+#  Save figure. 
+
+    epsfile = 'figure1.eps'
+    print( "Generating " + epsfile )
+    plt.savefig( epsfile, fmt='eps' )
+
+#  Plot the wind field at 900 hPa in the vicinity of the Texas coast. 
+
+    path = '/Users/sleroy/Data/reanalyses/narr-a/' + \
+        '{0:04d}{1:02d}/{0:04d}{1:02d}{2:02d}/narr-a_221_{0:04d}{1:02d}{2:02d}_{3:02d}00_000.nc'.format(year,month,day,hour)
+    d = Dataset( path, 'r' )
+    levels = d.variables['lv_ISBL3'][:]
+    ilev = list(levels).index(900)
+    u = d.variables['U_GRD_221_ISBL'][ilev,:,:].squeeze()		# m/s
+    v = d.variables['V_GRD_221_ISBL'][ilev,:,:].squeeze()		# m/s
+    q = d.variables['SPF_H_221_ISBL'][ilev,:,:].squeeze() * 1.0e3	# g/kg
+    lons = d.variables['gridlon_221'][:,:]
+    lats = d.variables['gridlat_221'][:,:]
+    d.close()
+
+#  Create map. 
+
+    matplotlib.rc( 'font', family='Helvetica', weight='normal', size=6 )
+    fig, ax = plt.subplots( figsize=(2,3) )
+#   bm = Basemap( projection='lcc', lat_1=50, lat_2=50, lon_0=253, lat_0=50, resolution='l', \
+#       llcrnrlon=-105, llcrnrlat=24, urcrnrlon=-90, urcrnrlat=40 )
+    bm = Basemap( resolution='l', \
+        llcrnrlon=-105, llcrnrlat=23, urcrnrlon=-88, urcrnrlat=45 )
+    x, y = bm( lons, lats )
+
+    ax.set_title( 'Winds, Humidity at 900 hPa' )
+    ax.set_position( [ 0.04, 0.03, 0.77, 0.90 ] )
+    bm.drawmapboundary(linewidth=0.5)
+    bm.drawcoastlines(linewidth=0.5, color='#404040')
+    bm.drawcountries(linewidth=0.5, color='#404040')
+    bm.drawstates(linewidth=0.25, color='#808080')
+
+#  Contour plot. 
+
+    clevels = np.arange(0.0,20.1,0.5)
+    cs = ax.contourf( x, y, q, clevels, vmin=0.0, vmax=20.0, cmap='jet_r' )
+#   cs = bm.contourf( x, y, pw, vmin=0.0, vmax=12.0, cmap='nipy_spectral' )
+    cb = bm.colorbar( cs, location='right', label='Specific Humidity [g/kg]', pad="5%" )
+    tick_locator = matplotlib.ticker.MaxNLocator(nbins=10)
+    cb.locator = tick_locator
+    cb.update_ticks()
+
+#  Wind farm. 
+
+    xv = np.array( [-95.9,-95.9,-96.9,-96.9,-95.9] )
+    yv = np.array( [27.3,28,28,27.3,27.3] )
+    bm.plot( xv, yv, 'r', linewidth=1.5 )
+
+#  Winds. 
+
+#   ur, vr = bm.rotate_vector( u, v, lons, lats )
+#   bm.quiver( x[::3,::3], y[::3,::3], qur[::3,::3], qvr[::3,::3], linewidth=0.8, scale=1000.0 )
+    bm.quiver( x[::2,::2], y[::2,::2], u[::2,::2], v[::2,::2], linewidth=0.8, scale=200.0, latlon=True )
+
+#  Save figure. 
+
+    epsfile = 'figure2.eps'
+    print( "Generating " + epsfile )
+    plt.savefig( epsfile, fmt='eps' )
+
+
+Tracer()()
+figures(2004,7,1,12)
+

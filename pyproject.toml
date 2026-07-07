@@ -1,0 +1,75 @@
+[build-system]
+requires = [ "hatchling>=1.22.2" ]
+build-backend = "hatchling.build"
+# requires = ["setuptools", "setuptools-scm"]
+# build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project]
+name = "pyllj"
+version = "1.0.0"
+authors = [
+	{ name="Stephen Leroy", email="stephen.leroy@janusresearch.us" },
+	]
+description = "Utilities for research on the Great Plains LLJ and beyond"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [ "numpy", "scipy", "matplotlib", "cartopy", 
+	"earthaccess", "requests", "cdsapi", "netCDF4", "tqdm" ]
+classifiers = [
+	"Programming Language :: Python :: 3",
+	"License :: OSI Approved :: BSD License",
+	"Operating System :: OS Independent"
+	]
+
+# [tool.setuptools.package-data]
+# "pyllj.data" = [ "*.nc" ]
+
+# [tool.hatch.build]
+# packages = ["src/pyllj"]
+# Ensure non-py files are included if they are not picked up
+# include = ["src/pyllj/data/*.nc"]
+
+[project.urls]
+"Homepage" = "https://www.aer-gitlab.com/sleroy/low-level-jet"
+"Bug Tracker" = "https://www.aer-gitlab.com/sleroy/low-level-jet/-/issues"
+
+[project.scripts]
+compute_narr_diagnostics = "pyllj.narr.compute_diagnostics:main"
+compute_narr_watervaporflux = "pyllj.narr.compute_watervaporflux:main"
+compute_narr_climatology = "pyllj.narr.compute_climatology:main"
+compute_narr_isohypses = "pyllj.narr.compute_isohypses:main"
+compute_narr_isohypses_climatology = "pyllj.narr.compute_isohypses_climatology:main"
+compute_narr_boundary_watervaporflux = "pyllj.narr.boundary_watervaporflux:main"
+
+download_era5 = "pyllj.era5.download_era5:main"
+compute_era5_diagnostics = "pyllj.era5.compute_diagnostics:main"
+compute_era5_watervaporflux = "pyllj.era5.compute_watervaporflux:main"
+compute_era5_climatology = "pyllj.era5.compute_climatology:main"
+compute_era5_isohypses = "pyllj.era5.compute_isohypses:main"
+compute_era5_isohypses_climatology = "pyllj.era5.compute_isohypses_climatology:main"
+compute_era5_boundary_watervaporflux = "pyllj.era5.boundary_watervaporflux:main"
+
+download_merra2 = "pyllj.merra2.download_merra2:main"
+compute_merra2_diagnostics = "pyllj.merra2.compute_diagnostics:main"
+compute_merra2_watervaporflux = "pyllj.merra2.compute_watervaporflux:main"
+compute_merra2_climatology = "pyllj.merra2.compute_climatology:main"
+compute_merra2_isohypses = "pyllj.merra2.compute_isohypses:main"
+compute_merra2_isohypses_climatology = "pyllj.merra2.compute_isohypses_climatology:main"
+compute_merra2_boundary_watervaporflux = "pyllj.merra2.boundary_watervaporflux:main"
+
+compute_diagnostics_climatology = "pyllj.podutilities.compute_diagnostics_climatology:main"
+compute_diagnostics = "pyllj.podutilities.compute_diagnostics:main"
+compute_watervaporflux = "pyllj.podutilities.compute_watervaporflux:main"
+compute_climatology = "pyllj.podutilities.compute_climatology:main"
+compute_isohypses = "pyllj.podutilities.compute_isohypses:main"
+compute_isohypses_climatology = "pyllj.podutilities.compute_isohypses_climatology:main"
+compute_boundary_watervaporflux = "pyllj.podutilities.boundary_watervaporflux:main"
+
+diagnostics = "pyllj.podutilities.diagnostics:main"
+speedheight = "pyllj.podutilities.speedheight:main"
+watervaporflux = "pyllj.podutilities.watervaporflux:main"
+boundaryflux = "pyllj.podutilities.boundaryflux:main"
+
