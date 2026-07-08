@@ -19,7 +19,7 @@ from .pyukmo import UKMOcolorMaps
 axeslinewidth = 0.5
 plt.rcParams.update( {
     'font.family': "DejaVu Serif",
-    'mathtext.fontset': "dejavuserif"
+    'mathtext.fontset': "dejavuserif",
     'font.size': 9, 
     'font.weight': "normal", 
     'text.usetex': True, 
