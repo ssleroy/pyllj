@@ -203,15 +203,18 @@ class ModelOutput():
         self.lats = None
         self.hyai = None
         self.hybi = None
-        self.zsurf = None
-
+        self.z3 = None 
+        
         for ncfile in ncfiles: 
             d = Dataset( ncfile, 'r' )
 
             #  Get surface orography. 
 
-            if "zsurf" in d.variables.keys() and self.zsurf is None: 
-                self.zsurf = d.variables['zsurf'][:]
+            if "zsurf" in d.variables.keys() and "zg" in d.variables.keys()  and self.z3 is None: 
+                self.z3 = d.variables['zsurf'][:] + d.variables['zg']
+
+            elif "Z3" in d.variables.keys() and self.z3 is None:
+                self.z3 = d.variables["Z3"]
 
             #  Process times. 
 

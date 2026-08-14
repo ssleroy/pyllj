@@ -129,7 +129,11 @@ def compute_diagnostics( month:str, dataroot:str, clobber:bool=False ):
                 zg = np.flip( zg, axis=0 )
 
             wnd = np.sqrt( uwnd**2 + vwnd**2 )
-            dh = 0.5 * ( zg[:-1,:,:] + zg[1:,:,:] ) - model.zsurf
+            # TODO: ask Stephen about this one. not sure why 
+            # he was using mean_height-z_surf rather 
+            # than height-z_surf
+            dh = model.Z3
+            #dh = 0.5 * ( zg[:-1,:,:] + zg[1:,:,:] ) - model.zsurf
 
             #  Bonner criteria. Find wind speed maxima and minima below 3 km height above the surface. 
 
