@@ -181,7 +181,12 @@ class ModelOutput():
 
         #  Get a comprehensive listing of output files. 
 
-        rootpath = os.path.join( self.dataroot, "work", "pp", "atmos_8xdaily_inst" )
+
+        # TODO: don't require dataroot, make model identification indenepdent of dir structure. 
+        if "AM4" in rootpath:
+            rootpath = os.path.join( self.dataroot, "work", "pp", "atmos_8xdaily_inst" )
+        elif "CAM7" in rootpath: 
+            rootpath = os.path.join( self.dataroot, "llj.01", "downloads", "gridded" )
         ncfiles = []
 
         for root, subdirs, files in os.walk( rootpath ): 
