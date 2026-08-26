@@ -132,8 +132,14 @@ def compute_diagnostics( month:str, dataroot:str, clobber:bool=False ):
             # TODO: ask Stephen about this one. not sure why 
             # he was using mean_height-z_surf rather 
             # than height-z_surf
-            dh = model.Z3
-            #dh = 0.5 * ( zg[:-1,:,:] + zg[1:,:,:] ) - model.zsurf
+            if model.Z3 is not None:
+                # CAM7 
+                dh = model.Z3
+            elif model.zg is not None:
+                # AM4
+                dh = 0.5 * ( zg[:-1,:,:] + zg[1:,:,:] ) - model.zsurf
+            else:
+                raise NameError("Height variable not found for model.")
 
             #  Bonner criteria. Find wind speed maxima and minima below 3 km height above the surface. 
 

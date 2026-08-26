@@ -204,16 +204,21 @@ class ModelOutput():
         self.hyai = None
         self.hybi = None
         self.z3 = None 
-        
+        self.zg = None
+        self.zsurg = None
+
         for ncfile in ncfiles: 
             d = Dataset( ncfile, 'r' )
 
             #  Get surface orography. 
 
             if "zsurf" in d.variables.keys() and "zg" in d.variables.keys()  and self.z3 is None: 
-                self.z3 = d.variables['zsurf'][:] + d.variables['zg']
+                # AM4 holds zg and zsurf as separate variables. 
+                self.zg = d.variables["zg"]
+                self.zsurf = d.variables["zsurf"]
 
-            elif "Z3" in d.variables.keys() and self.z3 is None:
+            elif"Z3" in d.variables.keys() and self.z3 is None:
+                # CAM7 height variable. 
                 self.z3 = d.variables["Z3"]
 
             #  Process times. 
