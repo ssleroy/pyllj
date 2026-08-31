@@ -205,7 +205,7 @@ class ModelOutput():
         self.hybi = None
         self.z3 = None 
         self.zg = None
-        self.zsurg = None
+        self.zsurf = None
 
         for ncfile in ncfiles: 
             d = Dataset( ncfile, 'r' )
@@ -240,7 +240,7 @@ class ModelOutput():
                 self.toffset = times[0] - datetime( year=times[0].year, month=times[0].month, day=1 )
 
             if self.tdelta is None: 
-                self.tdelta = times[1] - times[0] 
+                self.tdelta = times[1] - times[0]
 
             #  Get latitudes and longitudes. Justify longitudes. 
 

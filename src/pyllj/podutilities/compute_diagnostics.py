@@ -123,15 +123,18 @@ def compute_diagnostics( month:str, dataroot:str, clobber:bool=False ):
             if not ascending: 
                 vwnd = np.flip( vwnd, axis=0 )
 
+            # TODO: need an if statement here to get Z3, too, if necessary. 
             zgcomp, i, ascending = model.getvar( "zg", dt )
             zg = zgcomp[i,:,:,:]
             if not ascending: 
                 zg = np.flip( zg, axis=0 )
 
             wnd = np.sqrt( uwnd**2 + vwnd**2 )
-            # TODO: ask Stephen about this one. not sure why 
-            # he was using mean_height-z_surf rather 
-            # than height-z_surf
+            
+            # TODO: ideally would not hardcode this and would instead check if 
+            # a given model's height coord were on pressure levs vs half levs 
+            # then, in a second step, subtract surface if necessary. 
+            # However, this is *much* quicker...
             if model.Z3 is not None:
                 # CAM7 
                 dh = model.Z3
