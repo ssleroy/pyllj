@@ -2,13 +2,14 @@ import re
 import os
 from datetime import datetime, timedelta, timezone
 import argparse
-from .libpod import modeloutput_subdir, ModelOutput, region
+from .libpod import modeloutput_subdir, ModelOutput
 from netCDF4 import Dataset
 import numpy as np
 from scipy.interpolate import CubicHermiteSpline
 from tqdm import tqdm
 from time import time
-from ..parameters import gravity, RetClass
+from ..parameters import gravity
+from ..libutils import RetClass
 
 
 #  Subdirectory for diagnostics output. 
