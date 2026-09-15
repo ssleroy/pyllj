@@ -124,26 +124,23 @@ def compute_diagnostics( month:str, dataroot:str, clobber:bool=False ):
             if not ascending: 
                 vwnd = np.flip( vwnd, axis=0 )
 
-            # TODO: need an if statement here to get Z3, too, if necessary. 
-            zgcomp, i, ascending = model.getvar( "zg", dt )
-            zg = zgcomp[i,:,:,:]
-            if not ascending: 
-                zg = np.flip( zg, axis=0 )
-
+            if model.zg is not None:
+                zgcomp, i, ascending = model.getvar( "zg", dt )
+                zg = zgcomp[i,:,:,:]
+                if not ascending: 
+                    zg = np.flip( zg, axis=0 )
+                dh = 0.5 * ( zg[:-1,:,:] + zg[1:,:,:] ) - model.zsurf
+            elif model.Z3 is not None:
+                z3comp, i, ascending = model.getvar( "Z3", dt )
+                Z3 = Z3comp[i,:,:,:]
+                if not ascending: 
+                    Z3 = np.flip( zg, axis=0 )
+                dh = Z3
+            else:
+                raise NameError("Neither Z3 nor zg height variables were found for model.")
+            
             wnd = np.sqrt( uwnd**2 + vwnd**2 )
             
-            # TODO: ideally would not hardcode this and would instead check if 
-            # a given model's height coord were on pressure levs vs half levs 
-            # then, in a second step, subtract surface if necessary. 
-            # However, this is *much* quicker...
-            if model.Z3 is not None:
-                # CAM7 
-                dh = model.Z3
-            elif model.zg is not None:
-                # AM4
-                dh = 0.5 * ( zg[:-1,:,:] + zg[1:,:,:] ) - model.zsurf
-            else:
-                raise NameError("Height variable not found for model.")
 
             #  Bonner criteria. Find wind speed maxima and minima below 3 km height above the surface. 
 
