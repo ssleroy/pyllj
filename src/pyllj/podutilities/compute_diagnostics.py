@@ -130,7 +130,7 @@ def compute_diagnostics( month:str, dataroot:str, clobber:bool=False ):
                 if not ascending: 
                     zg = np.flip( zg, axis=0 )
                 dh = 0.5 * ( zg[:-1,:,:] + zg[1:,:,:] ) - model.zsurf
-            elif model.Z3 is not None:
+            elif model.z3 is not None:
                 z3comp, i, ascending = model.getvar( "Z3", dt )
                 Z3 = Z3comp[i,:,:,:]
                 if not ascending: 
