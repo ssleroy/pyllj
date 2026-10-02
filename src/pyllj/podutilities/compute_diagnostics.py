@@ -2,7 +2,7 @@ import re
 import os
 from datetime import datetime, timedelta, timezone
 import argparse
-from .libpod import modeloutput_subdir, ModelOutput
+from .libpod import ModelOutput
 from netCDF4 import Dataset
 import numpy as np
 from scipy.interpolate import CubicHermiteSpline
