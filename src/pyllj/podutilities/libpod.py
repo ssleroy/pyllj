@@ -58,10 +58,6 @@ output_time_units = "hours"
 
 rcfile = os.path.expanduser( "~/.pylljrc" )
 
-#  Subdirectory of post-processed model output. 
-
-modeloutput_subdir = "work/pp"
-
 #  Exception handling. 
 
 class Error( Exception ): 
@@ -183,9 +179,9 @@ class ModelOutput():
 
 
         # TODO: don't require dataroot, make model identification indenepdent of dir structure. 
-        if "AM4" in rootpath:
+        if "AM4" in dataroot:
             rootpath = os.path.join( self.dataroot, "work", "pp", "atmos_8xdaily_inst" )
-        elif "CAM7" in rootpath: 
+        elif "CAM7" in dataroot: 
             rootpath = os.path.join( self.dataroot, "llj.01", "downloads", "gridded" )
         ncfiles = []
 
@@ -217,7 +213,7 @@ class ModelOutput():
                 self.zg = d.variables["zg"]
                 self.zsurf = d.variables["zsurf"]
 
-            elif"Z3" in d.variables.keys() and self.z3 is None:
+            elif "Z3" in d.variables.keys() and self.z3 is None:
                 # CAM7 height variable. 
                 self.z3 = d.variables["Z3"]
 
