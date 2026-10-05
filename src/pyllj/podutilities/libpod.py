@@ -208,12 +208,12 @@ class ModelOutput():
 
             #  Get surface orography. 
 
-            if "zsurf" in d.variables.keys() and "zg" in d.variables.keys()  and self.z3 is None: 
-                # AM4 holds zg and zsurf as separate variables. 
-                self.zg = d.variables["zg"]
+            if "zsurf" in d.variables.keys() and self.zsurf is None:
+                # AM4 holds zg and zsurf as separate variables.
                 self.zsurf = d.variables["zsurf"]
-
-            elif "Z3" in d.variables.keys() and self.z3 is None:
+            if "zg" in d.variables.keys() and self.zg is None: 
+                self.zg = d.variables["zg"]
+            if "Z3" in d.variables.keys() and self.z3 is None:
                 # CAM7 height variable. 
                 self.z3 = d.variables["Z3"]
 
