@@ -1,0 +1,9 @@
+*/__pycache__/*
+*/.DS_Store
+*/*.swp
+*/*.nc
+*/*.nc4
+*/*.pdf
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
