@@ -132,9 +132,9 @@ def compute_diagnostics( month:str, dataroot:str, clobber:bool=False ):
                 dh = 0.5 * ( zg[:-1,:,:] + zg[1:,:,:] ) - model.zsurf
             elif model.z3 is not None:
                 z3comp, i, ascending = model.getvar( "Z3", dt )
-                Z3 = Z3comp[i,:,:,:]
+                Z3 = z3comp[i,:,:,:]
                 if not ascending: 
-                    Z3 = np.flip( zg, axis=0 )
+                    Z3 = np.flip( Z3, axis=0 )
                 dh = Z3
             else:
                 raise NameError("Neither Z3 nor zg height variables were found for model.")
