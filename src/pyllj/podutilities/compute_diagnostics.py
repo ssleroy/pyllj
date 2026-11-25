@@ -129,12 +129,17 @@ def compute_diagnostics( month:str, dataroot:str, clobber:bool=False ):
                 zg = zgcomp[i,:,:,:]
                 if not ascending: 
                     zg = np.flip( zg, axis=0 )
+                # Convert to height above surface
+                print("Using variable zg")
                 dh = 0.5 * ( zg[:-1,:,:] + zg[1:,:,:] ) - model.zsurf
             elif model.z3 is not None:
                 z3comp, i, ascending = model.getvar( "Z3", dt )
                 Z3 = z3comp[i,:,:,:]
                 if not ascending: 
                     Z3 = np.flip( Z3, axis=0 )
+                print("Using variable Z3")
+                # TODO: test to make sure CAM7 uses Z3 while AM4 uses zg
+                # TODO: figure out how to subtract surface from Z3. I swear stephen had PHI/g substracted somewhere.
                 dh = Z3
             else:
                 raise NameError("Neither Z3 nor zg height variables were found for model.")
