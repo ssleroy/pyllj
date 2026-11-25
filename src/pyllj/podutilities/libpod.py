@@ -210,7 +210,7 @@ class ModelOutput():
 
             if "zsurf" in d.variables.keys() and self.zsurf is None:
                 # AM4 holds zg and zsurf as separate variables.
-                self.zsurf = d.variables["zsurf"]
+                self.zsurf = d.variables["zsurf"][:]
             if "zg" in d.variables.keys() and self.zg is None: 
                 self.zg = d.variables["zg"]
             if "Z3" in d.variables.keys() and self.z3 is None:
